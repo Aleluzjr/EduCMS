@@ -1,21 +1,63 @@
-import express from 'express';
-import cors from 'cors';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const app = express();
-const PORT = 3001;
-
-// Middleware
-app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+const DATA_PATH = path.join(__dirname, 'data', 'documents.json');
+
+// Listar documentos
+app.get('/api/documents', (req, res) => {
+  const docs = readDocuments();
+  // Paginação simples
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 25;
+  const total = docs.length;
+  const pageCount = Math.ceil(total / pageSize);
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+  const pagedData = docs.slice(start, end);
+  res.json({
+    data: pagedData,
+    meta: {
+      pagination: {
+        page,
+        pageSize,
+        pageCount,
+        total
+      }
+    }
+  });
+});
+
+// Criar documento
+app.post('/api/documents', (req, res) => {
+  const docs = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8') || '[]');
+  const newDoc = req.body;
+  docs.push(newDoc);
+  fs.writeFileSync(DATA_PATH, JSON.stringify(docs, null, 2));
+  res.status(201).json(newDoc);
+});
+
+// Editar documento
+app.put('/api/documents/:id', (req, res) => {
+  const docs = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8') || '[]');
+  const idx = docs.findIndex(d => d.id === req.params.id);
+  if (idx === -1) return res.status(404).send('Not found');
+  docs[idx] = req.body;
+  fs.writeFileSync(DATA_PATH, JSON.stringify(docs, null, 2));
+  res.json(docs[idx]);
+});
+
+// Excluir documento
+app.delete('/api/documents/:id', (req, res) => {
+  let docs = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8') || '[]');
+  docs = docs.filter(d => d.id !== req.params.id);
+  fs.writeFileSync(DATA_PATH, JSON.stringify(docs, null, 2));
+  res.status(204).send();
+});
+
+app.listen(3001, () => console.log('API rodando em http://localhost:3001'));
 
 // Ensure directories exist
 const ensureDirectoryExists = (dir) => {
@@ -258,8 +300,26 @@ app.delete('/api/documents/:id', (req, res) => {
 
 // Slide templates endpoints
 app.get('/api/slide-templates', (req, res) => {
-  const templates = readTemplates();
-  res.json(templates);
+  // Gera templates dinamicamente a partir dos slides dos documentos
+  const documents = readDocuments();
+  const slideTypes = {};
+  documents.forEach(doc => {
+    if (Array.isArray(doc.slides)) {
+      doc.slides.forEach(slide => {
+        const type = slide.__component;
+        if (type && !slideTypes[type]) {
+          slideTypes[type] = {
+            id: type,
+            name: type.replace('slides.', '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            fields: Object.keys(slide)
+              .filter(k => k !== '__component' && k !== 'id')
+              .map(fieldName => ({ name: fieldName }))
+          };
+        }
+      });
+    }
+  });
+  res.json(Object.values(slideTypes));
 });
 
 app.post('/api/slide-templates', (req, res) => {
