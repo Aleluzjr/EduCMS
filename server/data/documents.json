@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1,
+    "documentId": "a711fca1-a58d-4a09-8a1a-982446e9d923",
+    "name": "Novo Documento",
+    "createdAt": "2025-07-23T18:55:52.211Z",
+    "updatedAt": "2025-07-23T19:23:52.151Z",
+    "publishedAt": null,
+    "slides": [
+      {
+        "__component": "slides.capa",
+        "title": "Capa do conteudo",
+        "description": "Capa do Slide",
+        "author": "João da Silva Santos",
+        "image": {
+          "url": "http://localhost:3001/uploads/1753297350753-573484895.jpg",
+          "filename": "1753297350753-573484895.jpg",
+          "originalName": "pexels-pixabay-256381.jpg",
+          "size": 1423118,
+          "mimetype": "image/jpeg",
+          "formats": {
+            "large": {
+              "url": "http://localhost:3001/uploads/1753297350753-573484895.jpg"
+            },
+            "thumbnail": {
+              "url": "http://localhost:3001/uploads/1753297350753-573484895.jpg"
+            }
+          }
+        }
+      },
+      {
+        "__component": "slides.objetivos",
+        "title": "Objetivos",
+        "objectivesList": [
+          {
+            "id": 1753298609450,
+            "title": "Teste 1"
+          },
+          {
+            "id": 1753298614056,
+            "title": "Teste 2"
+          },
+          {
+            "id": 1753298621158,
+            "title": "Teste 3"
+          }
+        ]
+      },
+      {
+        "__component": "slides.texto-com-imagem",
+        "title": "",
+        "content": "",
+        "image": ""
+      }
+    ]
+  }
+]
