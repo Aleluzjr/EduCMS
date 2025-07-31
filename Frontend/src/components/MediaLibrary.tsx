@@ -1,13 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { Upload, File, Image as ImageIcon, Video, Music, Trash2, Copy, ExternalLink } from 'lucide-react';
+import { ENDPOINTS, apiRequest } from '../config/api';
 
 export default function MediaLibrary() {
   const [files, setFiles] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const API_BASE = 'http://localhost:3001/api';
 
   const handleFileUpload = async (filesToUpload: FileList) => {
     setUploading(true);
@@ -17,10 +16,10 @@ export default function MediaLibrary() {
       formData.append('file', file);
 
       try {
-        const response = await fetch(`${API_BASE}/upload`, {
-          method: 'POST',
-          body: formData
-        });
+              const response = await apiRequest(ENDPOINTS.UPLOAD, {
+        method: 'POST',
+        body: formData
+      });
 
         if (!response.ok) throw new Error('Upload failed');
         return await response.json();

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Save, Eye, Trash2, GripVertical, Edit3 } from 'lucide-react';
 import SlideEditor from './SlideEditor';
 import SlidePreview from './SlidePreview';
+import { ENDPOINTS, apiRequest } from '../config/api';
 
 interface Document {
   id: number;
@@ -34,22 +35,13 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
   const [showPreview, setShowPreview] = useState(false);
   const [draggedSlide, setDraggedSlide] = useState<number | null>(null);
 
-  const API_BASE = 'http://localhost:3001/api';
-
-  const saveDocument = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/documents/${editingDocument.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingDocument)
-      });
-      const updatedDoc = await response.json();
-      onSave(updatedDoc);
-      alert('Documento salvo com sucesso!');
-    } catch (error) {
-      console.error('Erro ao salvar documento:', error);
-      alert('Erro ao salvar documento');
-    }
+  const saveDocument = () => {
+    // Atualiza o updatedAt antes de salvar
+    const docToSave = {
+      ...editingDocument,
+      updatedAt: new Date().toISOString()
+    };
+    onSave(docToSave);
   };
 
   const addSlide = (templateId: string) => {

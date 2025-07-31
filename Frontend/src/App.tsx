@@ -3,6 +3,7 @@ import { Plus, FileText, Settings, Upload, Eye, Trash2, Edit3 } from 'lucide-rea
 import DocumentEditor from './components/DocumentEditor';
 import SlideTemplateBuilder from './components/SlideTemplateBuilder';
 import MediaLibrary from './components/MediaLibrary';
+import { ENDPOINTS, apiRequest } from './config/api';
 
 interface Document {
   id: number;
@@ -27,9 +28,8 @@ function App() {
   const [templates, setTemplates] = useState<SlideTemplate[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<SlideTemplate | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const API_BASE = 'http://localhost:3001/api';
 
   useEffect(() => {
     fetchDocuments();
@@ -38,7 +38,7 @@ function App() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch(`${API_BASE}/documents`);
+      const response = await apiRequest(ENDPOINTS.DOCUMENTS);
       const data = await response.json();
       setDocuments(data);
     } catch (error) {
@@ -48,7 +48,7 @@ function App() {
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch(`${API_BASE}/slide-templates`);
+      const response = await apiRequest(ENDPOINTS.SLIDE_TEMPLATES);
       const data = await response.json();
       setTemplates(data);
     } catch (error) {
@@ -56,34 +56,54 @@ function App() {
     }
   };
 
-  const createDocument = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE}/documents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Novo Documento' })
-      });
-      const newDoc = await response.json();
-      setDocuments([...documents, newDoc]);
-      setSelectedDocument(newDoc);
-    } catch (error) {
-      console.error('Erro ao criar documento:', error);
-    }
-    setLoading(false);
+  const createDocument = () => {
+    // Cria um documento local temporário (não salva no banco ainda)
+    const tempDoc: Document = {
+      id: Date.now(), // ID temporário negativo para identificar que não foi salvo
+      documentId: `temp-${Date.now()}`, // Document ID temporário
+      name: 'Novo Documento',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      publishedAt: null,
+      slides: []
+    };
+    
+    setDocuments([...documents, tempDoc]);
+    setSelectedDocument(tempDoc);
   };
 
   const deleteDocument = async (id: number) => {
     if (!window.confirm('Tem certeza que deseja excluir este documento?')) return;
     
+    // Se é um documento temporário, apenas remove da lista local
+    if (id > 1000000) {
+      setDocuments(documents.filter(doc => doc.id !== id));
+      if (selectedDocument?.id === id) {
+        setSelectedDocument(null);
+      }
+      return;
+    }
+    
+    // Se é um documento salvo, deleta do banco
     try {
-      await fetch(`${API_BASE}/documents/${id}`, { method: 'DELETE' });
+      await apiRequest(`${ENDPOINTS.DOCUMENTS}/${id}`, { method: 'DELETE' });
       setDocuments(documents.filter(doc => doc.id !== id));
       if (selectedDocument?.id === id) {
         setSelectedDocument(null);
       }
     } catch (error) {
       console.error('Erro ao excluir documento:', error);
+    }
+  };
+
+  const deleteTemplate = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este template?')) return;
+    
+    try {
+      await apiRequest(`${ENDPOINTS.SLIDE_TEMPLATES}/${id}`, { method: 'DELETE' });
+      setTemplates(templates.filter(template => template.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir template:', error);
     }
   };
 
@@ -97,23 +117,85 @@ function App() {
         document={selectedDocument}
         templates={templates}
         onBack={() => setSelectedDocument(null)}
-        onSave={(updatedDoc) => {
-          setDocuments(documents.map(doc => 
-            doc.id === updatedDoc.id ? updatedDoc : doc
-          ));
-          setSelectedDocument(updatedDoc);
+        onSave={async (updatedDoc) => {
+          try {
+            let savedDoc = updatedDoc;
+            
+            // Se é um documento temporário (ID muito grande), salva no banco
+            if (updatedDoc.id > 1000000) {
+              const response = await apiRequest(ENDPOINTS.DOCUMENTS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: updatedDoc.name,
+                  slides: updatedDoc.slides
+                })
+              });
+              savedDoc = await response.json();
+            } else {
+              // Se já existe, atualiza
+              const response = await apiRequest(`${ENDPOINTS.DOCUMENTS}/${updatedDoc.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedDoc)
+              });
+              savedDoc = await response.json();
+            }
+            
+            // Atualiza a lista de documentos
+            setDocuments(documents.map(doc => 
+              doc.id === updatedDoc.id ? savedDoc : doc
+            ));
+            setSelectedDocument(savedDoc);
+            
+            // Mostra mensagem de sucesso
+            alert('Documento salvo com sucesso!');
+          } catch (error) {
+            console.error('Erro ao salvar documento:', error);
+            alert('Erro ao salvar documento');
+          }
         }}
       />
     );
   }
 
-  if (showTemplateBuilder) {
+  if (showTemplateBuilder || editingTemplate) {
     return (
       <SlideTemplateBuilder
-        onBack={() => setShowTemplateBuilder(false)}
-        onSave={(template) => {
-          setTemplates([...templates, template]);
+        template={editingTemplate}
+        onBack={() => {
           setShowTemplateBuilder(false);
+          setEditingTemplate(null);
+        }}
+        onSave={async (template) => {
+          try {
+            if (editingTemplate) {
+              // Atualizar template existente
+              const response = await apiRequest(`${ENDPOINTS.SLIDE_TEMPLATES}/${editingTemplate.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(template)
+              });
+              const updatedTemplate = await response.json();
+              setTemplates(templates.map(t => t.id === editingTemplate.id ? updatedTemplate : t));
+              alert('Template atualizado com sucesso!');
+            } else {
+              // Criar novo template
+              const response = await apiRequest(ENDPOINTS.SLIDE_TEMPLATES, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(template)
+              });
+              const newTemplate = await response.json();
+              setTemplates([...templates, newTemplate]);
+              alert('Template criado com sucesso!');
+            }
+            setShowTemplateBuilder(false);
+            setEditingTemplate(null);
+          } catch (error) {
+            console.error('Erro ao salvar template:', error);
+            alert('Erro ao salvar template');
+          }
         }}
       />
     );
@@ -217,8 +299,17 @@ function App() {
                             <div>Criado: {formatDate(doc.createdAt)}</div>
                             <div>Slides: {doc.slides?.length || 0}</div>
                             <div className="flex items-center space-x-2">
-                              <div className={`w-2 h-2 rounded-full ${doc.publishedAt ? 'bg-green-400' : 'bg-gray-300'}`} />
-                              <span>{doc.publishedAt ? 'Publicado' : 'Rascunho'}</span>
+                              {doc.id > 1000000 ? (
+                                <>
+                                  <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                                  <span className="text-yellow-600 font-medium">Não salvo</span>
+                                </>
+                              ) : (
+                                <>
+                                  <div className={`w-2 h-2 rounded-full ${doc.publishedAt ? 'bg-green-400' : 'bg-gray-300'}`} />
+                                  <span>{doc.publishedAt ? 'Publicado' : 'Rascunho'}</span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -234,7 +325,7 @@ function App() {
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => window.open(`${API_BASE}/documents/${doc.id}`, '_blank')}
+                            onClick={() => window.open(`${ENDPOINTS.DOCUMENTS}/${doc.id}`, '_blank')}
                             className="text-green-600 hover:text-green-700 p-2 rounded-md hover:bg-green-50 transition-colors"
                             title="Visualizar API"
                           >
@@ -281,13 +372,39 @@ function App() {
                       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                         <Settings className="w-6 h-6 text-blue-600" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900">{template.name}</h3>
                         <p className="text-sm text-gray-500">{template.id}</p>
                       </div>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 mb-4">
                       {template.fields.length} campos configurados
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setEditingTemplate(template)}
+                          className="text-blue-600 hover:text-blue-700 p-2 rounded-md hover:bg-blue-50 transition-colors"
+                          title="Editar Template"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => window.open(`${ENDPOINTS.SLIDE_TEMPLATES}/${template.id}`, '_blank')}
+                          className="text-green-600 hover:text-green-700 p-2 rounded-md hover:bg-green-50 transition-colors"
+                          title="Visualizar API"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => deleteTemplate(template.id)}
+                        className="text-red-600 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors"
+                        title="Excluir Template"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>

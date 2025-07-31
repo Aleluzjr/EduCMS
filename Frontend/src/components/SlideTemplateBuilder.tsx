@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, Trash2, Save, Type, FileText, Image, List, MoreHorizontal } from 'lucide-react';
+import { ENDPOINTS, apiRequest } from '../config/api';
 
 interface Field {
   name: string;
@@ -11,18 +12,24 @@ interface Field {
   fields?: Field[];
 }
 
+interface SlideTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  fields: Field[];
+}
+
 interface SlideTemplateBuilderProps {
+  template?: SlideTemplate | null;
   onBack: () => void;
   onSave: (template: any) => void;
 }
 
-export default function SlideTemplateBuilder({ onBack, onSave }: SlideTemplateBuilderProps) {
-  const [templateName, setTemplateName] = useState('');
-  const [templateIcon, setTemplateIcon] = useState('FileText');
-  const [fields, setFields] = useState<Field[]>([]);
+export default function SlideTemplateBuilder({ template, onBack, onSave }: SlideTemplateBuilderProps) {
+  const [templateName, setTemplateName] = useState(template?.name || '');
+  const [templateIcon, setTemplateIcon] = useState(template?.icon || 'FileText');
+  const [fields, setFields] = useState<Field[]>(template?.fields || []);
   const [showAddField, setShowAddField] = useState(false);
-
-  const API_BASE = 'http://localhost:3001/api';
 
   const fieldTypes = [
     { id: 'text', name: 'Texto Curto', icon: Type, description: 'Campo de texto simples' },
@@ -129,7 +136,7 @@ export default function SlideTemplateBuilder({ onBack, onSave }: SlideTemplateBu
     };
 
     try {
-      const response = await fetch(`${API_BASE}/slide-templates`, {
+      const response = await apiRequest(ENDPOINTS.SLIDE_TEMPLATES, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(template)
@@ -160,8 +167,12 @@ export default function SlideTemplateBuilder({ onBack, onSave }: SlideTemplateBu
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Criar Template de Slide</h1>
-                <p className="text-gray-600">Configure os campos e propriedades do novo template</p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {template ? 'Editar Template de Slide' : 'Criar Template de Slide'}
+                </h1>
+                <p className="text-gray-600">
+                  {template ? 'Modifique os campos e propriedades do template' : 'Configure os campos e propriedades do novo template'}
+                </p>
               </div>
             </div>
             
@@ -170,7 +181,7 @@ export default function SlideTemplateBuilder({ onBack, onSave }: SlideTemplateBu
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
             >
               <Save className="w-4 h-4" />
-              <span>Salvar Template</span>
+              <span>{template ? 'Atualizar Template' : 'Salvar Template'}</span>
             </button>
           </div>
         </div>

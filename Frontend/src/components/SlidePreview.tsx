@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { ENDPOINTS } from '../config/api';
 
 interface Document {
   id: number;
@@ -26,8 +27,6 @@ interface SlidePreviewProps {
 
 export default function SlidePreview({ document, templates, onBack }: SlidePreviewProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-
-  const API_BASE = 'http://localhost:3001/api';
 
   const nextSlide = () => {
     setCurrentSlide(prev => Math.min(prev + 1, document.slides.length - 1));
@@ -238,15 +237,15 @@ export default function SlidePreview({ document, templates, onBack }: SlidePrevi
               {currentSlide + 1} de {document.slides.length}
             </span>
             
-            <a
-              href={`${API_BASE}/documents/${document.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Ver API</span>
-            </a>
+                          <a
+                href={`${ENDPOINTS.DOCUMENTS}/${document.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Ver API</span>
+              </a>
           </div>
         </div>
       </div>
@@ -258,21 +257,21 @@ export default function SlidePreview({ document, templates, onBack }: SlidePrevi
 
       {/* Navigation Controls */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-        <button
-          onClick={prevSlide}
-          disabled={currentSlide === 0}
-          className="bg-white shadow-lg border p-3 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
+                  <button
+            onClick={prevSlide}
+            disabled={currentSlide === 0}
+            className="bg-white shadow-lg border p-3 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
         
-        <button
-          onClick={nextSlide}
-          disabled={currentSlide === document.slides.length - 1}
-          className="bg-white shadow-lg border p-3 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+                  <button
+            onClick={nextSlide}
+            disabled={currentSlide === document.slides.length - 1}
+            className="bg-white shadow-lg border p-3 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
       </div>
 
       {/* Slide Progress Indicator */}

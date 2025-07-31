@@ -4,6 +4,7 @@ import TextareaField from './fields/TextareaField';
 import HtmlField from './fields/HtmlField';
 import MediaField from './fields/MediaField';
 import RepeatableField from './fields/RepeatableField';
+import { ENDPOINTS, apiRequest } from '../config/api';
 
 interface Field {
   name: string;
@@ -31,8 +32,6 @@ interface SlideEditorProps {
 export default function SlideEditor({ slide, template, onUpdate }: SlideEditorProps) {
   const [uploading, setUploading] = useState(false);
 
-  const API_BASE = 'http://localhost:3001/api';
-
   // O slide é sempre controlado pelo pai, não precisa de estado local duplicado
 
   const handleFieldChange = (fieldName: string, value: any) => {
@@ -49,7 +48,7 @@ export default function SlideEditor({ slide, template, onUpdate }: SlideEditorPr
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`${API_BASE}/upload`, {
+      const response = await apiRequest(ENDPOINTS.UPLOAD, {
         method: 'POST',
         body: formData
       });
