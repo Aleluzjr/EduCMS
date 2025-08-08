@@ -1,49 +1,43 @@
 
 import { Module } from '@nestjs/common';
-// ...existing code...
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Document } from './entities/document.entity';
-import { Field } from './entities/field.entity';
-import { SlideTemplate } from './entities/slide-template.entity';
-import { DocumentsController } from './documents/documents.controller';
-import { DocumentsService } from './documents/documents.service';
-import { FieldsController } from './fields/fields.controller';
-import { FieldsService } from './fields/fields.service';
-import { SlideTemplatesController } from './slide-templates/slide-templates.controller';
-import { SlideTemplatesService } from './slide-templates/slide-templates.service';
-import { DbTestController } from './db-test.controller';
+import { DocumentsModule } from './documents/documents.module';
+import { FieldsModule } from './fields/fields.module';
+import { SlideTemplatesModule } from './slide-templates/slide-templates.module';
 import { UploadModule } from './upload/upload.module';
+import { MediaModule } from './media/media.module';
+import { DbTestController } from './db-test.controller';
+import { databaseConfig } from './config/database.config';
+import { HttpExceptionInterceptor } from './common/interceptors/http-exception.interceptor';
+import { ValidationPipe } from './common/pipes/validation.pipe';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      username: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASS || '2539',
-      database: process.env.DB_NAME || 'cms',
-      autoLoadEntities: true,
-      synchronize: false, // Desabilitado para segurança em produção
-    }),
-    TypeOrmModule.forFeature([Document, Field, SlideTemplate]),
+    TypeOrmModule.forRoot(databaseConfig),
+    DocumentsModule,
+    FieldsModule,
+    SlideTemplatesModule,
     UploadModule,
+    MediaModule,
   ],
   controllers: [
     AppController,
-    DocumentsController,
-    FieldsController,
-    SlideTemplatesController,
     DbTestController,
   ],
   providers: [
     AppService,
-    DocumentsService,
-    FieldsService,
-    SlideTemplatesService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpExceptionInterceptor,
+    },
+    {
+      provide: APP_PIPE,
+      useClass: ValidationPipe,
+    },
   ],
 })
 export class AppModule {}

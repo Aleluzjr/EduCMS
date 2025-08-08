@@ -1,98 +1,122 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend CMS
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend da aplicação CMS desenvolvido com NestJS.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## 🚀 Instalação
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+## ⚙️ Configuração
+
+1. Copie o arquivo de exemplo de ambiente:
+```bash
+cp env.example .env
+```
+
+2. Configure as variáveis de ambiente no arquivo `.env`:
+   - `DB_HOST`: Host do banco de dados MySQL
+   - `DB_PORT`: Porta do banco de dados (padrão: 3306)
+   - `DB_USER`: Usuário do banco de dados
+   - `DB_PASS`: Senha do banco de dados
+   - `DB_NAME`: Nome do banco de dados
+   - `PORT`: Porta da aplicação (padrão: 3000)
+   - `NODE_ENV`: Ambiente de execução (development/production)
+
+## 🏃‍♂️ Executando a aplicação
 
 ```bash
-# development
-$ npm run start
+# Desenvolvimento
+npm run start:dev
 
-# watch mode
-$ npm run start:dev
+# Produção
+npm run start:prod
 
-# production mode
-$ npm run start:prod
+# Debug
+npm run start:debug
 ```
 
-## Run tests
+## 🧪 Testes
 
 ```bash
-# unit tests
-$ npm run test
+# Testes unitários
+npm run test
 
-# e2e tests
-$ npm run test:e2e
+# Testes e2e
+npm run test:e2e
 
-# test coverage
-$ npm run test:cov
+# Cobertura de testes
+npm run test:cov
 ```
 
-## Deployment
+## 📁 Estrutura do Projeto
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```
+src/
+├── config/                 # Configurações
+├── common/                 # Utilitários e pipes globais
+│   ├── interceptors/      # Interceptors globais
+│   └── pipes/            # Pipes de validação
+├── documents/             # Módulo de documentos
+│   ├── dto/              # Data Transfer Objects
+│   ├── documents.controller.ts
+│   ├── documents.service.ts
+│   └── documents.module.ts
+├── fields/               # Módulo de campos
+├── media/                # Módulo de mídia
+│   ├── dto/              # Data Transfer Objects
+│   ├── media.controller.ts
+│   ├── media.service.ts
+│   └── media.module.ts
+├── slide-templates/      # Módulo de templates de slides
+├── upload/               # Módulo de upload de arquivos
+├── entities/             # Entidades do TypeORM
+└── main.ts              # Ponto de entrada da aplicação
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 🔧 Tecnologias Utilizadas
 
-## Resources
+- **NestJS**: Framework para construção de aplicações escaláveis
+- **TypeORM**: ORM para banco de dados
+- **MySQL**: Banco de dados
+- **class-validator**: Validação de dados
+- **Multer**: Upload de arquivos
 
-Check out a few resources that may come in handy when working with NestJS:
+## 📚 API Endpoints
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Documentos
+- `GET /api/documents` - Listar todos os documentos
+- `GET /api/documents?withMedia=true` - Listar documentos com mídias
+- `GET /api/documents/:id` - Buscar documento por ID
+- `GET /api/documents/:id/with-media` - Buscar documento com mídias por ID
+- `POST /api/documents` - Criar novo documento
+- `PUT /api/documents/:id` - Atualizar documento
+- `DELETE /api/documents/:id` - Remover documento
 
-## Support
+### Mídia
+- `GET /api/media` - Listar todas as mídias
+- `GET /api/media?documentId=1` - Listar mídias de um documento
+- `GET /api/media/stats` - Estatísticas das mídias
+- `GET /api/media/:id` - Buscar mídia por ID
+- `POST /api/media` - Upload de arquivo (multipart/form-data)
+- `PATCH /api/media/:id` - Atualizar mídia
+- `DELETE /api/media/:id` - Remover mídia
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Upload
+- `POST /api/upload` - Upload de arquivos
 
-## Stay in touch
+### Teste de Conexão
+- `GET /api/db-test` - Testar conexão com banco de dados
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## 🔒 Segurança
 
-## License
+- Validação de entrada com DTOs
+- Tratamento global de erros
+- Configuração de CORS
+- Validação de tipos de arquivo no upload
+- Limite de tamanho de arquivo (10MB)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 📝 Licença
+
+Este projeto está sob a licença MIT.

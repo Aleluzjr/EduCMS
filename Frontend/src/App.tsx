@@ -159,47 +159,69 @@ function App() {
     );
   }
 
-  if (showTemplateBuilder || editingTemplate) {
-    return (
-      <SlideTemplateBuilder
-        template={editingTemplate}
-        onBack={() => {
+if (editingTemplate) {
+  return (
+    <SlideTemplateBuilder
+      template={editingTemplate}
+      onBack={() => {
+        setEditingTemplate(null);
+        setShowTemplateBuilder(false);
+      }}
+      onSave={async (template) => {
+        try {
+          // Atualizar template existente
+          const response = await apiRequest(`${ENDPOINTS.SLIDE_TEMPLATES}/${editingTemplate.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(template)
+          });
+          const updatedTemplate = await response.json();
+          setTemplates(templates.map(t => t.id === editingTemplate.id ? updatedTemplate : t));
+          setEditingTemplate(null);
+          setShowTemplateBuilder(false);
+          alert('Template atualizado com sucesso!');
+        } catch (error) {
+          console.error('Erro ao salvar template:', error);
+          setEditingTemplate(null);
+          setShowTemplateBuilder(false);
+          alert('Erro ao salvar template');
+        }
+      }}
+    />
+  );
+}
+
+if (showTemplateBuilder) {
+  return (
+    <SlideTemplateBuilder
+      template={null}
+      onBack={() => {
+        setShowTemplateBuilder(false);
+        setEditingTemplate(null);
+      }}
+      onSave={async (template) => {
+        try {
+          // Criar novo template
+          const response = await apiRequest(ENDPOINTS.SLIDE_TEMPLATES, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(template)
+          });
+          const newTemplate = await response.json();
+          setTemplates([...templates, newTemplate]);
           setShowTemplateBuilder(false);
           setEditingTemplate(null);
-        }}
-        onSave={async (template) => {
-          try {
-            if (editingTemplate) {
-              // Atualizar template existente
-              const response = await apiRequest(`${ENDPOINTS.SLIDE_TEMPLATES}/${editingTemplate.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(template)
-              });
-              const updatedTemplate = await response.json();
-              setTemplates(templates.map(t => t.id === editingTemplate.id ? updatedTemplate : t));
-              alert('Template atualizado com sucesso!');
-            } else {
-              // Criar novo template
-              const response = await apiRequest(ENDPOINTS.SLIDE_TEMPLATES, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(template)
-              });
-              const newTemplate = await response.json();
-              setTemplates([...templates, newTemplate]);
-              alert('Template criado com sucesso!');
-            }
-            setShowTemplateBuilder(false);
-            setEditingTemplate(null);
-          } catch (error) {
-            console.error('Erro ao salvar template:', error);
-            alert('Erro ao salvar template');
-          }
-        }}
-      />
-    );
-  }
+          alert('Template criado com sucesso!');
+        } catch (error) {
+          console.error('Erro ao salvar template:', error);
+          setShowTemplateBuilder(false);
+          setEditingTemplate(null);
+          alert('Erro ao salvar template');
+        }
+      }}
+    />
+  );
+}
 
   return (
     <div className="min-h-screen bg-gray-50">

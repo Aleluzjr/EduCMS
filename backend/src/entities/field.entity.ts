@@ -26,6 +26,6 @@ export class Field {
   @Column({ nullable: true })
   accept: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   fields: any;
 }

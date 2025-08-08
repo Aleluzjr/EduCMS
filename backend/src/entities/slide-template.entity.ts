@@ -11,6 +11,6 @@ export class SlideTemplate {
   @Column()
   icon: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   fields: any;
 }

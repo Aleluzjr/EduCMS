@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Media } from './media.entity';
 
 @Entity('documents')
 export class Document {
@@ -20,6 +21,9 @@ export class Document {
   @Column({ name: 'published_at', type: 'timestamp', nullable: true })
   publishedAt: Date | null;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'json', nullable: true })
   slides: any;
+
+  @OneToMany(() => Media, media => media.document)
+  media: Media[];
 }
