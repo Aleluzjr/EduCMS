@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, FileText, Settings, Upload, Eye, Trash2, Edit3 } from 'lucide-react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import DocumentEditor from './components/DocumentEditor';
 import SlideTemplateBuilder from './components/SlideTemplateBuilder';
 import MediaLibrary from './components/MediaLibrary';
+import ConfirmDialog from './components/ConfirmDialog';
 import { ENDPOINTS, apiRequest } from './config/api';
+import { ToastProvider, useToastContext } from './contexts/ToastContext';
 
 interface Document {
   id: number;
@@ -22,7 +26,7 @@ interface SlideTemplate {
   fields: any[];
 }
 
-function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<'documents' | 'templates' | 'media'>('documents');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [templates, setTemplates] = useState<SlideTemplate[]>([]);
@@ -30,6 +34,19 @@ function App() {
   const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<SlideTemplate | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  const { success, error, warning, info } = useToastContext();
 
   useEffect(() => {
     fetchDocuments();
@@ -41,8 +58,9 @@ function App() {
       const response = await apiRequest(ENDPOINTS.DOCUMENTS);
       const data = await response.json();
       setDocuments(data);
-    } catch (error) {
-      console.error('Erro ao carregar documentos:', error);
+    } catch (err) {
+      console.error('Erro ao carregar documentos:', err);
+      error('Erro ao carregar documentos');
     }
   };
 
@@ -51,8 +69,9 @@ function App() {
       const response = await apiRequest(ENDPOINTS.SLIDE_TEMPLATES);
       const data = await response.json();
       setTemplates(data);
-    } catch (error) {
-      console.error('Erro ao carregar templates:', error);
+    } catch (err) {
+      console.error('Erro ao carregar templates:', err);
+      error('Erro ao carregar templates');
     }
   };
 
@@ -70,41 +89,59 @@ function App() {
     
     setDocuments([...documents, tempDoc]);
     setSelectedDocument(tempDoc);
+    success('Novo documento criado');
   };
 
   const deleteDocument = async (id: number) => {
-    if (!window.confirm('Tem certeza que deseja excluir este documento?')) return;
-    
-    // Se é um documento temporário, apenas remove da lista local
-    if (id > 1000000) {
-      setDocuments(documents.filter(doc => doc.id !== id));
-      if (selectedDocument?.id === id) {
-        setSelectedDocument(null);
-      }
-      return;
-    }
-    
-    // Se é um documento salvo, deleta do banco
-    try {
-      await apiRequest(`${ENDPOINTS.DOCUMENTS}/${id}`, { method: 'DELETE' });
-      setDocuments(documents.filter(doc => doc.id !== id));
-      if (selectedDocument?.id === id) {
-        setSelectedDocument(null);
-      }
-    } catch (error) {
-      console.error('Erro ao excluir documento:', error);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Excluir Documento',
+      message: 'Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.',
+      type: 'danger',
+      onConfirm: async () => {
+        // Se é um documento temporário, apenas remove da lista local
+        if (id > 1000000) {
+          setDocuments(documents.filter(doc => doc.id !== id));
+          if (selectedDocument?.id === id) {
+            setSelectedDocument(null);
+          }
+          success('Documento temporário removido');
+          return;
+        }
+        
+        // Se é um documento salvo, deleta do banco
+        try {
+          await apiRequest(`${ENDPOINTS.DOCUMENTS}/${id}`, { method: 'DELETE' });
+          setDocuments(documents.filter(doc => doc.id !== id));
+          if (selectedDocument?.id === id) {
+            setSelectedDocument(null);
+          }
+          success('Documento excluído com sucesso');
+        } catch (err) {
+          console.error('Erro ao excluir documento:', err);
+          error('Erro ao excluir documento');
+        }
+      },
+    });
   };
 
   const deleteTemplate = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este template?')) return;
-    
-    try {
-      await apiRequest(`${ENDPOINTS.SLIDE_TEMPLATES}/${id}`, { method: 'DELETE' });
-      setTemplates(templates.filter(template => template.id !== id));
-    } catch (error) {
-      console.error('Erro ao excluir template:', error);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Excluir Template',
+      message: 'Tem certeza que deseja excluir este template? Esta ação não pode ser desfeita.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await apiRequest(`${ENDPOINTS.SLIDE_TEMPLATES}/${id}`, { method: 'DELETE' });
+          setTemplates(templates.filter(template => template.id !== id));
+          success('Template excluído com sucesso');
+        } catch (err) {
+          console.error('Erro ao excluir template:', err);
+          error('Erro ao excluir template');
+        }
+      },
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -149,11 +186,11 @@ function App() {
             setSelectedDocument(savedDoc);
             
             // Mostra mensagem de sucesso
-            alert('Documento salvo com sucesso!');
-          } catch (error) {
-            console.error('Erro ao salvar documento:', error);
-            alert('Erro ao salvar documento');
-          }
+            success('Documento salvo com sucesso!');
+                      } catch (err) {
+              console.error('Erro ao salvar documento:', err);
+              error('Erro ao salvar documento');
+            }
         }}
       />
     );
@@ -179,13 +216,13 @@ if (editingTemplate) {
           setTemplates(templates.map(t => t.id === editingTemplate.id ? updatedTemplate : t));
           setEditingTemplate(null);
           setShowTemplateBuilder(false);
-          alert('Template atualizado com sucesso!');
-        } catch (error) {
-          console.error('Erro ao salvar template:', error);
-          setEditingTemplate(null);
-          setShowTemplateBuilder(false);
-          alert('Erro ao salvar template');
-        }
+          success('Template atualizado com sucesso!');
+                  } catch (err) {
+            console.error('Erro ao salvar template:', err);
+            setEditingTemplate(null);
+            setShowTemplateBuilder(false);
+            error('Erro ao salvar template');
+          }
       }}
     />
   );
@@ -211,13 +248,13 @@ if (showTemplateBuilder) {
           setTemplates([...templates, newTemplate]);
           setShowTemplateBuilder(false);
           setEditingTemplate(null);
-          alert('Template criado com sucesso!');
-        } catch (error) {
-          console.error('Erro ao salvar template:', error);
-          setShowTemplateBuilder(false);
-          setEditingTemplate(null);
-          alert('Erro ao salvar template');
-        }
+          success('Template criado com sucesso!');
+                  } catch (err) {
+            console.error('Erro ao salvar template:', err);
+            setShowTemplateBuilder(false);
+            setEditingTemplate(null);
+            error('Erro ao salvar template');
+          }
       }}
     />
   );
@@ -438,8 +475,25 @@ if (showTemplateBuilder) {
         {activeTab === 'media' && (
           <MediaLibrary />
         )}
+              </div>
+        <ToastContainer />
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+          onConfirm={confirmDialog.onConfirm}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          type={confirmDialog.type}
+        />
       </div>
-    </div>
+    );
+  }
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 

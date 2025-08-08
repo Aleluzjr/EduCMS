@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Upload, File, Image as ImageIcon, Video, Music, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { ENDPOINTS, apiRequest } from '../config/api';
+import { useToastContext } from '../contexts/ToastContext';
 
 export default function MediaLibrary() {
   const [files, setFiles] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { success, error, warning } = useToastContext();
 
   const handleFileUpload = async (filesToUpload: FileList) => {
     setUploading(true);
@@ -23,8 +25,9 @@ export default function MediaLibrary() {
 
         if (!response.ok) throw new Error('Upload failed');
         return await response.json();
-      } catch (error) {
-        console.error('Erro no upload:', error);
+      } catch (err) {
+        console.error('Erro no upload:', err);
+        error('Erro no upload do arquivo');
         return null;
       }
     });
@@ -34,6 +37,10 @@ export default function MediaLibrary() {
     
     setFiles(prev => [...prev, ...successfulUploads]);
     setUploading(false);
+    
+    if (successfulUploads.length > 0) {
+      success(`${successfulUploads.length} arquivo(s) enviado(s) com sucesso`);
+    }
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -73,12 +80,12 @@ export default function MediaLibrary() {
 
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
-    alert('URL copiada para a área de transferência');
+    success('URL copiada para a área de transferência');
   };
 
   const deleteFile = (index: number) => {
-    if (!window.confirm('Tem certeza que deseja remover este arquivo da biblioteca?')) return;
     setFiles(prev => prev.filter((_, i) => i !== index));
+    success('Arquivo removido da biblioteca');
   };
 
   return (
