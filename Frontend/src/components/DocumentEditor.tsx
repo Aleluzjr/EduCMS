@@ -1,25 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Save, Eye, Trash2, GripVertical, Edit3 } from 'lucide-react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import SlideEditor from './SlideEditor';
 import SlidePreview from './SlidePreview';
 import { ENDPOINTS, apiRequest } from '../config/api';
-
-interface Document {
-  id: number;
-  documentId: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  slides: any[];
-}
-
-interface SlideTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  fields: any[];
-}
+import { useToastContext } from '../contexts/ToastContext';
+import { Document, SlideTemplate } from '../types';
 
 interface DocumentEditorProps {
   document: Document;
@@ -34,22 +21,33 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [draggedSlide, setDraggedSlide] = useState<number | null>(null);
+  const { success, error } = useToastContext();
 
-  const saveDocument = () => {
-    // Atualiza o updatedAt antes de salvar
-    const docToSave = {
-      ...editingDocument,
-      updatedAt: new Date().toISOString()
-    };
-    onSave(docToSave);
+  const saveDocument = async () => {
+    try {
+      // Atualiza o updatedAt antes de salvar
+      const docToSave = {
+        ...editingDocument,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Chama a função onSave do App.tsx
+      await onSave(docToSave);
+      
+      // Mostra o toast de sucesso diretamente no DocumentEditor
+      success('Documento salvo com sucesso!');
+    } catch (err) {
+      console.error('Erro ao salvar documento:', err);
+      error('Erro ao salvar documento');
+    }
   };
 
-  const addSlide = (templateId: string) => {
+  const addSlide = (templateId: number) => {
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
 
     const newSlide: any = {
-      __component: templateId
+      __component: template.templateKey // Usar templateKey em vez de ID
     };
 
     // Initialize fields with default values
@@ -235,7 +233,7 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
                 ) : (
                   <div className="p-2">
                     {editingDocument.slides.map((slide, index) => {
-                      const template = templates.find(t => t.id === slide.__component);
+                      const template = templates.find(t => t.templateKey === slide.__component);
                       return (
                         <div
                           key={index}
@@ -300,7 +298,7 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
               <div className="bg-white rounded-xl shadow-sm border min-h-[28rem] flex flex-col">
                 <SlideEditor
                   slide={editingDocument.slides[selectedSlide]}
-                  template={templates.find(t => t.id === editingDocument.slides[selectedSlide]?.__component)}
+                  template={templates.find(t => t.templateKey === editingDocument.slides[selectedSlide]?.__component)}
                   onUpdate={(slideData) => updateSlide(selectedSlide, slideData)}
                 />
               </div>
@@ -334,7 +332,7 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
                     onClick={() => addSlide(template.id)}
                     className="p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
                   >
-                    <div className="font-medium text-gray-900 mb-1">{template.name}</div>
+                    <div className="font-medium text-gray-900 mb-1 ">{template.name}</div>
                     <div className="text-sm text-gray-500">{template.id}</div>
                   </button>
                 ))}
@@ -352,6 +350,20 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
           </div>
         </div>
       )}
+      <ToastContainer 
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        style={{ zIndex: 99999 }}
+        toastStyle={{ zIndex: 99999 }}
+      />
     </div>
   );
 }

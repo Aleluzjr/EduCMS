@@ -30,4 +30,9 @@ export class SlideTemplatesController {
   remove(@Param('id') id: number) {
     return this.service.remove(id);
   }
+
+  @Post('update-template-keys')
+  updateTemplateKeys() {
+    return this.service.updateExistingTemplates();
+  }
 }

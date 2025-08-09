@@ -8,23 +8,7 @@ import MediaLibrary from './components/MediaLibrary';
 import ConfirmDialog from './components/ConfirmDialog';
 import { ENDPOINTS, apiRequest } from './config/api';
 import { ToastProvider, useToastContext } from './contexts/ToastContext';
-
-interface Document {
-  id: number;
-  documentId: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  slides: any[];
-}
-
-interface SlideTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  fields: any[];
-}
+import { Document, SlideTemplate } from './types';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<'documents' | 'templates' | 'media'>('documents');
@@ -125,7 +109,7 @@ function AppContent() {
     });
   };
 
-  const deleteTemplate = async (id: string) => {
+  const deleteTemplate = async (id: number) => {
     setConfirmDialog({
       isOpen: true,
       title: 'Excluir Template',
@@ -170,11 +154,17 @@ function AppContent() {
               });
               savedDoc = await response.json();
             } else {
-              // Se já existe, atualiza
+              // Se já existe, atualiza - envia apenas os campos que podem ser atualizados
+              const updateData = {
+                name: updatedDoc.name,
+                slides: updatedDoc.slides,
+                publishedAt: updatedDoc.publishedAt
+              };
+              
               const response = await apiRequest(`${ENDPOINTS.DOCUMENTS}/${updatedDoc.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedDoc)
+                body: JSON.stringify(updateData)
               });
               savedDoc = await response.json();
             }
@@ -185,12 +175,11 @@ function AppContent() {
             ));
             setSelectedDocument(savedDoc);
             
-            // Mostra mensagem de sucesso
-            success('Documento salvo com sucesso!');
-                      } catch (err) {
-              console.error('Erro ao salvar documento:', err);
-              error('Erro ao salvar documento');
-            }
+            // O toast agora é chamado diretamente no DocumentEditor
+          } catch (err) {
+            console.error('Erro ao salvar documento:', err);
+            error('Erro ao salvar documento');
+          }
         }}
       />
     );
@@ -212,17 +201,23 @@ if (editingTemplate) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(template)
           });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+          }
+          
           const updatedTemplate = await response.json();
           setTemplates(templates.map(t => t.id === editingTemplate.id ? updatedTemplate : t));
           setEditingTemplate(null);
           setShowTemplateBuilder(false);
           success('Template atualizado com sucesso!');
-                  } catch (err) {
-            console.error('Erro ao salvar template:', err);
-            setEditingTemplate(null);
-            setShowTemplateBuilder(false);
-            error('Erro ao salvar template');
-          }
+        } catch (err) {
+          console.error('Erro ao salvar template:', err);
+          setEditingTemplate(null);
+          setShowTemplateBuilder(false);
+          error(err instanceof Error ? err.message : 'Erro ao salvar template');
+        }
       }}
     />
   );
@@ -244,17 +239,23 @@ if (showTemplateBuilder) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(template)
           });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+          }
+          
           const newTemplate = await response.json();
           setTemplates([...templates, newTemplate]);
           setShowTemplateBuilder(false);
           setEditingTemplate(null);
           success('Template criado com sucesso!');
-                  } catch (err) {
-            console.error('Erro ao salvar template:', err);
-            setShowTemplateBuilder(false);
-            setEditingTemplate(null);
-            error('Erro ao salvar template');
-          }
+        } catch (err) {
+          console.error('Erro ao salvar template:', err);
+          setShowTemplateBuilder(false);
+          setEditingTemplate(null);
+          error(err instanceof Error ? err.message : 'Erro ao salvar template');
+        }
       }}
     />
   );
@@ -476,7 +477,20 @@ if (showTemplateBuilder) {
           <MediaLibrary />
         )}
               </div>
-        <ToastContainer />
+        <ToastContainer 
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={true}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          style={{ zIndex: 99999 }}
+          toastStyle={{ zIndex: 99999 }}
+        />
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}

@@ -8,11 +8,14 @@ export class ValidationPipe implements PipeTransform<any> {
     if (!metatype || !this.toValidate(metatype)) {
       return value;
     }
+    
     const object = plainToClass(metatype, value);
     const errors = await validate(object);
+    
     if (errors.length > 0) {
       throw new BadRequestException('Dados de entrada inválidos');
     }
+    
     return value;
   }
 

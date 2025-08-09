@@ -11,6 +11,9 @@ export class SlideTemplate {
   @Column()
   icon: string;
 
+  @Column({ name: 'template_key', unique: true })
+  templateKey: string;
+
   @Column({ type: 'json', nullable: true })
   fields: any;
 }

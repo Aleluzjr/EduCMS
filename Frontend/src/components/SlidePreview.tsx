@@ -1,23 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { ENDPOINTS } from '../config/api';
-
-interface Document {
-  id: number;
-  documentId: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  slides: any[];
-}
-
-interface SlideTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  fields: any[];
-}
+import { Document, SlideTemplate } from '../types';
 
 interface SlidePreviewProps {
   document: Document;
@@ -37,7 +21,7 @@ export default function SlidePreview({ document, templates, onBack }: SlidePrevi
   };
 
   const renderSlideContent = (slide: any) => {
-    const template = templates.find(t => t.id === slide.__component);
+    const template = templates.find(t => t.templateKey === slide.__component);
     
     switch (slide.__component) {
       case 'slides.capa':

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { Upload, Plus, Trash2 } from 'lucide-react';
 import TextField from './fields/TextField';
 import TextareaField from './fields/TextareaField';
 import HtmlField from './fields/HtmlField';
 import MediaField from './fields/MediaField';
 import RepeatableField from './fields/RepeatableField';
 import { ENDPOINTS, apiRequest } from '../config/api';
+import { SlideTemplate } from '../types';
 
 interface Field {
   name: string;
@@ -14,13 +16,6 @@ interface Field {
   defaultValue?: any;
   accept?: string;
   fields?: Field[];
-}
-
-interface SlideTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  fields: Field[];
 }
 
 interface SlideEditorProps {
