@@ -1,6 +1,8 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import MediaTypeSelector from './MediaTypeSelector';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
 
 interface Field {
   name: string;
@@ -47,62 +49,58 @@ export default function SubFieldsEditor({ fields, onFieldsChange, fieldTypes }: 
     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-medium text-gray-700">Subcampos da Lista</h4>
-        <button
+        <Button
           onClick={addSubField}
-          className="text-blue-600 hover:text-blue-700 text-sm flex items-center space-x-1"
+          variant="ghost"
+          size="sm"
+          leftIcon={<Plus className="w-3 h-3" />}
+          className="text-blue-600 hover:text-blue-700"
         >
-          <Plus className="w-3 h-3" />
-          <span>Adicionar Subcampo</span>
-        </button>
+          Adicionar Subcampo
+        </Button>
       </div>
       
       <div className="space-y-3">
         {fields.map((subField, subIndex) => (
-          <div key={subIndex} className="p-3 bg-white rounded border">
+          <div key={subIndex} className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-medium text-gray-500">Subcampo {subIndex + 1}</span>
-                <div className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                <div className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
                   {fieldTypes.find(t => t.id === subField.type)?.name || subField.type}
                 </div>
               </div>
-              <button
+              <Button
                 onClick={() => removeSubField(subIndex)}
-                className="text-red-600 hover:text-red-700 p-1"
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1"
               >
                 <Trash2 className="w-3 h-3" />
-              </button>
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Nome do Campo
-                </label>
-                <input
-                  type="text"
-                  value={subField.name}
-                  onChange={(e) => updateSubField(subIndex, { name: e.target.value })}
-                  placeholder="Nome do subcampo"
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              <Input
+                label="Nome do Campo"
+                value={subField.name}
+                onChange={(e) => updateSubField(subIndex, { name: e.target.value })}
+                placeholder="Nome do subcampo"
+                size="sm"
+                required
+              />
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Label do Campo
-                </label>
-                <input
-                  type="text"
-                  value={subField.label}
-                  onChange={(e) => updateSubField(subIndex, { label: e.target.value })}
-                  placeholder="Label do subcampo"
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              <Input
+                label="Label do Campo"
+                value={subField.label}
+                onChange={(e) => updateSubField(subIndex, { label: e.target.value })}
+                placeholder="Label do subcampo"
+                size="sm"
+                required
+              />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-4">
                 <label className="flex items-center space-x-2">
                   <input
@@ -133,7 +131,7 @@ export default function SubFieldsEditor({ fields, onFieldsChange, fieldTypes }: 
 
             {/* Configurações específicas por tipo para subcampos */}
             {subField.type === 'media' && (
-              <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <MediaTypeSelector
                   value={subField.allowedMediaTypes || []}
                   onChange={(value) => updateSubField(subIndex, { allowedMediaTypes: value })}
@@ -143,23 +141,20 @@ export default function SubFieldsEditor({ fields, onFieldsChange, fieldTypes }: 
             )}
 
             {subField.type === 'text' && (
-              <div className="mt-3 p-2 bg-green-50 rounded border border-green-200">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Valor padrão
-                </label>
-                <input
-                  type="text"
+              <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <Input
+                  label="Valor padrão"
                   value={subField.defaultValue || ''}
                   onChange={(e) => updateSubField(subIndex, { defaultValue: e.target.value })}
                   placeholder="Valor padrão para o campo"
-                  className="w-full px-2 py-1 border border-green-200 rounded text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  size="sm"
                 />
               </div>
             )}
 
             {subField.type === 'textarea' && (
-              <div className="mt-3 p-2 bg-green-50 rounded border border-green-200">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-700 mb-1">
                       Linhas
@@ -173,18 +168,13 @@ export default function SubFieldsEditor({ fields, onFieldsChange, fieldTypes }: 
                       className="w-full px-2 py-1 border border-green-200 rounded text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-700 mb-1">
-                      Valor padrão
-                    </label>
-                    <input
-                      type="text"
-                      value={subField.defaultValue || ''}
-                      onChange={(e) => updateSubField(subIndex, { defaultValue: e.target.value })}
-                      placeholder="Texto padrão"
-                      className="w-full px-2 py-1 border border-green-200 rounded text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                    />
-                  </div>
+                  <Input
+                    label="Valor padrão"
+                    value={subField.defaultValue || ''}
+                    onChange={(e) => updateSubField(subIndex, { defaultValue: e.target.value })}
+                    placeholder="Texto padrão"
+                    size="sm"
+                  />
                 </div>
               </div>
             )}

@@ -56,6 +56,22 @@ function AppContent() {
           } 
         />
         <Route 
+          path="/documentos/:id" 
+          element={
+            <Suspense fallback={<PageFallback message="Carregando documento..." />}>
+              <DocumentosPage />
+            </Suspense>
+          } 
+        />
+        <Route 
+          path="/documentos/:id/editar" 
+          element={
+            <Suspense fallback={<PageFallback message="Carregando editor..." />}>
+              <DocumentosPage />
+            </Suspense>
+          } 
+        />
+        <Route 
           path="/slide-templates" 
           element={
             <Suspense fallback={<PageFallback message="Carregando templates..." />}>

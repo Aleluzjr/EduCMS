@@ -1,29 +1,49 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, Mail, User, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User, LogIn, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useForm, usePasswordField, useCapsLock } from '../hooks';
+import { validators } from '../utils';
+import Input from './ui/Input';
+import Button from './ui/Button';
+
+interface LoginFormData {
+  email: string;
+  password: string;
+}
 
 const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
   const { login } = useAuth();
+  const passwordField = usePasswordField();
+  const isCapsLockOn = useCapsLock();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const { values, errors, loading, setFieldValue, handleSubmit } = useForm<LoginFormData>({
+    initialValues: {
+      email: '',
+      password: ''
+    },
+    onSubmit: async (formData) => {
+      setError('');
+      try {
+        await login(formData.email, formData.password);
+      } catch (err: any) {
+        setError(err.message || 'Erro ao fazer login');
+      }
+    },
+    validate: (values) => {
+      const validationErrors: Record<keyof LoginFormData, string> = {} as Record<keyof LoginFormData, string>;
+      
+      // Validate email
+      const emailError = validators.required(values.email, 'Email') || validators.email(values.email);
+      if (emailError) validationErrors.email = emailError;
+      
+      // Validate password
+      const passwordError = validators.required(values.password, 'Senha');
+      if (passwordError) validationErrors.password = passwordError;
 
-    try {
-      await login(email, password);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao fazer login');
-    } finally {
-      setLoading(false);
+      return Object.keys(validationErrors).length > 0 ? validationErrors : null;
     }
-  };
+  });
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -38,73 +58,79 @@ const LoginForm: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div 
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
+              aria-live="polite"
+              role="alert"
+            >
               {error}
             </div>
           )}
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            value={values.email}
+            onChange={(e) => setFieldValue('email', e.target.value)}
+            placeholder="seu@email.com"
+            leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
+            error={errors.email}
+            required
+          />
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Senha
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+              <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                type={passwordField.inputType}
+                value={values.password}
+                onChange={(e) => setFieldValue('password', e.target.value)}
                 placeholder="••••••••"
+                leftIcon={<Lock className="h-5 w-5 text-gray-400" />}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={passwordField.togglePasswordVisibility}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={passwordField.showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-pressed={passwordField.showPassword}
+                    disabled={loading}
+                  >
+                    {passwordField.showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                }
+                error={errors.password}
                 required
               />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                )}
-              </button>
             </div>
+            
+            {/* Aviso de Caps Lock */}
+            {isCapsLockOn && (
+              <div className="mt-2 flex items-center space-x-2 text-amber-600 text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Caps Lock está ativado</span>
+              </div>
+            )}
           </div>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="lg"
+            loading={loading}
+            leftIcon={<LogIn className="w-5 h-5" />}
+            className="w-full"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              'Entrar'
-            )}
-          </button>
+            {loading ? 'Entrando...' : 'Entrar'}
+          </Button>
         </form>
 
         <div className="mt-6 text-center">
@@ -113,6 +139,7 @@ const LoginForm: React.FC = () => {
             <button
               type="button"
               className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+              disabled={loading}
             >
               Recuperar senha
             </button>

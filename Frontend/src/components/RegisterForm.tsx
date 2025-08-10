@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, Mail, User, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User, UserPlus, AlertTriangle } from 'lucide-react';
 import { apiRequest } from '../config/api';
+import { useForm, usePasswordField, useCapsLock } from '../hooks';
+import { validators } from '../utils';
+import Input from './ui/Input';
+import Button from './ui/Button';
+import PasswordStrengthMeter from './ui/PasswordStrengthMeter';
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
 }
 
-interface RegisterData {
+interface RegisterFormData {
   name: string;
   email: string;
   password: string;
@@ -14,89 +19,69 @@ interface RegisterData {
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
-  const [formData, setFormData] = useState<RegisterData>({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const passwordField = usePasswordField();
+  const confirmPasswordField = usePasswordField();
+  const isCapsLockOn = useCapsLock();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
-  };
+  const { values, errors, loading, setFieldValue, handleSubmit } = useForm<RegisterFormData>({
+    initialValues: {
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: ''
+    },
+    onSubmit: async (formData) => {
+      setSuccess('');
+      try {
+        const response = await apiRequest('/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password
+          })
+        });
 
-  const validateForm = (): boolean => {
-    if (formData.password !== formData.confirmPassword) {
-      setError('As senhas não coincidem');
-      return false;
-    }
-
-    if (formData.password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
-      return false;
-    }
-
-    if (!formData.name.trim()) {
-      setError('O nome é obrigatório');
-      return false;
-    }
-
-    if (!formData.email.trim()) {
-      setError('O email é obrigatório');
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await apiRequest('/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          role: 'EDITOR' // Backend always sets role to EDITOR
-        })
-      });
-
-      if (response.ok) {
-        setSuccess('Conta criada com sucesso! Faça login para continuar.');
-        setTimeout(() => {
-          onSwitchToLogin();
-        }, 2000);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Erro ao criar conta');
+        if (response.ok) {
+          setSuccess('Conta criada com sucesso! Faça login para continuar.');
+          setTimeout(() => {
+            onSwitchToLogin();
+          }, 2000);
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Erro ao criar conta');
+        }
+      } catch (err: any) {
+        throw err;
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao criar conta');
-    } finally {
-      setLoading(false);
+    },
+    validate: (values) => {
+      const validationErrors: Record<keyof RegisterFormData, string> = {} as Record<keyof RegisterFormData, string>;
+      
+      // Validate name
+      const nameError = validators.required(values.name, 'Nome');
+      if (nameError) validationErrors.name = nameError;
+      
+      // Validate email
+      const emailError = validators.required(values.email, 'Email') || validators.email(values.email);
+      if (emailError) validationErrors.email = emailError;
+      
+      // Validate password
+      const passwordError = validators.required(values.password, 'Senha') || validators.strongPassword(values.password);
+      if (passwordError) validationErrors.password = passwordError;
+      
+      // Validate confirmPassword
+      const confirmPasswordError = validators.required(values.confirmPassword, 'Confirmar senha') || 
+        validators.passwordMatch(values.password, values.confirmPassword);
+      if (confirmPasswordError) validationErrors.confirmPassword = confirmPasswordError;
+
+      return Object.keys(validationErrors).length > 0 ? validationErrors : null;
     }
-  };
+  });
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -110,90 +95,81 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+            <div 
+              className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm"
+              aria-live="polite"
+              role="status"
+            >
               {success}
             </div>
           )}
 
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Nome completo
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                value={formData.name}
-                onChange={handleChange}
-                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="Seu nome completo"
-                required
-              />
-            </div>
-          </div>
+          <Input
+            label="Nome completo"
+            type="text"
+            value={values.name}
+            onChange={(e) => setFieldValue('name', e.target.value)}
+            placeholder="Seu nome completo"
+            leftIcon={<User className="h-5 w-5 text-gray-400" />}
+            error={errors.name}
+            required
+          />
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            value={values.email}
+            onChange={(e) => setFieldValue('email', e.target.value)}
+            placeholder="seu@email.com"
+            leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
+            error={errors.email}
+            required
+          />
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Senha
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+              <Input
                 id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleChange}
-                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                type={passwordField.inputType}
+                value={values.password}
+                onChange={(e) => setFieldValue('password', e.target.value)}
                 placeholder="••••••••"
+                leftIcon={<Lock className="h-5 w-5 text-gray-400" />}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={passwordField.togglePasswordVisibility}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={passwordField.showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-pressed={passwordField.showPassword}
+                    disabled={loading}
+                  >
+                    {passwordField.showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                }
+                error={errors.password}
                 required
               />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                )}
-              </button>
             </div>
+            
+            {/* Medidor de força de senha */}
+            <PasswordStrengthMeter password={values.password} />
+            
+            {/* Aviso de Caps Lock */}
+            {isCapsLockOn && (
+              <div className="mt-2 flex items-center space-x-2 text-amber-600 text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Caps Lock está ativado</span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -201,44 +177,54 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               Confirmar senha
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+              <Input
                 id="confirmPassword"
-                name="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                type={confirmPasswordField.inputType}
+                value={values.confirmPassword}
+                onChange={(e) => setFieldValue('confirmPassword', e.target.value)}
                 placeholder="••••••••"
+                leftIcon={<Lock className="h-5 w-5 text-gray-400" />}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={confirmPasswordField.togglePasswordVisibility}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={confirmPasswordField.showPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+                    aria-pressed={confirmPasswordField.showPassword}
+                    disabled={loading}
+                  >
+                    {confirmPasswordField.showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                }
+                error={errors.confirmPassword}
                 required
               />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                )}
-              </button>
             </div>
+            
+            {/* Aviso de Caps Lock */}
+            {isCapsLockOn && (
+              <div className="mt-2 flex items-center space-x-2 text-amber-600 text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Caps Lock está ativado</span>
+              </div>
+            )}
           </div>
 
-          <button
+          <Button
             type="submit"
+            variant="success"
+            size="lg"
+            loading={loading}
+            leftIcon={<UserPlus className="w-5 h-5" />}
+            className="w-full"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              'Criar conta'
-            )}
-          </button>
+            {loading ? 'Criando conta...' : 'Criar conta'}
+          </Button>
         </form>
 
         <div className="mt-6 text-center">
@@ -247,6 +233,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
             <button
               onClick={onSwitchToLogin}
               className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+              disabled={loading}
             >
               Fazer login
             </button>

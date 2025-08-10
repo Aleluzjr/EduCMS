@@ -90,7 +90,7 @@ const DocumentCard = React.memo(({
 DocumentCard.displayName = 'DocumentCard';
 
 const DocumentosPage: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const { success, error } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [templates, setTemplates] = useState<SlideTemplate[]>([]);
@@ -103,14 +103,32 @@ const DocumentosPage: React.FC = () => {
     onConfirm: () => {}
   });
 
+  // Log de debug para identificar o problema
+  useEffect(() => {
+    console.log('🔍 DocumentosPage - Debug Info:', {
+      user: user,
+      userRole: user?.role,
+      accessToken: accessToken ? 'Presente' : 'Ausente',
+      isAuthenticated: !!accessToken
+    });
+  }, [user, accessToken]);
+
   // Memoizar funções para evitar re-criações desnecessárias
   const fetchDocuments = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('📄 Iniciando busca de documentos para usuário:', user?.role);
+      
       const response = await apiRequest(ENDPOINTS.DOCUMENTS, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
+      });
+      
+      console.log('📄 Resposta da API de documentos:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
       });
       
       if (!response.ok) {
@@ -118,10 +136,15 @@ const DocumentosPage: React.FC = () => {
           error('Sessão expirada. Faça login novamente.');
           return;
         }
+        if (response.status === 403) {
+          error('Acesso negado. Você não tem permissão para acessar esta área.');
+          return;
+        }
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('📄 Dados recebidos da API:', data);
       
       // Garantir que documents seja sempre um array
       if (Array.isArray(data)) {
@@ -138,13 +161,13 @@ const DocumentosPage: React.FC = () => {
         error('Formato de resposta inesperado da API');
       }
     } catch (err) {
-      console.error('Erro ao carregar documentos:', err);
+      console.error('❌ Erro ao carregar documentos:', err);
       error('Erro ao carregar documentos');
       setDocuments([]); // Garantir que seja um array vazio em caso de erro
     } finally {
       setLoading(false);
     }
-  }, [accessToken, error]);
+  }, [accessToken, error, user?.role]);
 
   const fetchTemplates = useCallback(async () => {
     try {

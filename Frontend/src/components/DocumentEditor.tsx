@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Plus, Save, Eye, Trash2, GripVertical, Edit3 } from 'lucide-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import SlideEditor from './SlideEditor';
 import SlidePreview from './SlidePreview';
+import ConfirmDialog from './ConfirmDialog';
+import Button from './ui/Button';
 import { ENDPOINTS, apiRequest } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
 import { Document, SlideTemplate } from '../types';
@@ -21,7 +24,42 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [draggedSlide, setDraggedSlide] = useState<number | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [slideToDelete, setSlideToDelete] = useState<number | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { success, error } = useToastContext();
+  
+  // Refs para virtualização
+  const slidesListRef = useRef<HTMLDivElement>(null);
+  const slidesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Virtualização da lista de slides
+  const slidesVirtualizer = useVirtualizer({
+    count: editingDocument.slides.length,
+    getScrollElement: () => slidesContainerRef.current,
+    estimateSize: () => 80, // Altura estimada de cada slide
+    overscan: 5,
+  });
+
+  // Verificar mudanças não salvas
+  useEffect(() => {
+    const hasChanges = JSON.stringify(editingDocument) !== JSON.stringify(document);
+    setHasUnsavedChanges(hasChanges);
+  }, [editingDocument, document]);
+
+  // Evento beforeunload para mudanças não salvas
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Você tem mudanças não salvas. Tem certeza que deseja sair?';
+        return 'Você tem mudanças não salvas. Tem certeza que deseja sair?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const saveDocument = async () => {
     try {
@@ -36,6 +74,9 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
       
       // Mostra o toast de sucesso diretamente no DocumentEditor
       success('Documento salvo com sucesso!');
+      
+      // Atualiza o documento original para resetar as mudanças não salvas
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error('Erro ao salvar documento:', err);
       error('Erro ao salvar documento');
@@ -47,19 +88,17 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
     if (!template) return;
 
     const newSlide: any = {
-      __component: template.templateKey // Usar templateKey em vez de ID
+      templateId: template.id,
+      templateKey: template.templateKey,
+      order: editingDocument.slides.length,
+      fields: template.fields.map(field => ({
+        fieldId: field.id,
+        fieldName: field.name,
+        fieldType: field.type,
+        value: field.defaultValue || ''
+      })),
+      isPublished: false
     };
-
-    // Initialize fields with default values
-    template.fields.forEach(field => {
-      if (field.type === 'repeatable') {
-        newSlide[field.name] = [];
-      } else if (field.defaultValue) {
-        newSlide[field.name] = field.defaultValue;
-      } else {
-        newSlide[field.name] = '';
-      }
-    });
 
     const updatedSlides = [...editingDocument.slides, newSlide];
     setEditingDocument({
@@ -80,23 +119,32 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
   };
 
   const deleteSlide = (index: number) => {
-    if (!window.confirm('Tem certeza que deseja excluir este slide?')) return;
+    setSlideToDelete(index);
+    setShowDeleteDialog(true);
+  };
 
-    const updatedSlides = editingDocument.slides.filter((_, i) => i !== index);
+  const confirmDeleteSlide = () => {
+    if (slideToDelete === null) return;
+
+    const updatedSlides = editingDocument.slides.filter((_, i) => i !== slideToDelete);
     setEditingDocument({
       ...editingDocument,
       slides: updatedSlides
     });
+    
     // Seleciona o slide anterior, ou o próximo, ou nenhum se não houver slides
     if (updatedSlides.length === 0) {
       setSelectedSlide(null);
     } else if (selectedSlide !== null) {
-      if (selectedSlide > index) {
+      if (selectedSlide > slideToDelete) {
         setSelectedSlide(selectedSlide - 1);
-      } else if (selectedSlide === index) {
-        setSelectedSlide(Math.max(0, index - 1));
+      } else if (selectedSlide === slideToDelete) {
+        setSelectedSlide(Math.max(0, slideToDelete - 1));
       }
     }
+    
+    setSlideToDelete(null);
+    setShowDeleteDialog(false);
   };
 
   const moveSlide = (fromIndex: number, toIndex: number) => {
@@ -167,36 +215,42 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
                   className="text-xl font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
                 />
                 <div className="text-sm text-gray-500">
-                  {editingDocument.slides.length} slides • ID: {editingDocument.documentId}
+                  {editingDocument.slides.length} slides • ID: {editingDocument.id}
+                  {hasUnsavedChanges && (
+                    <span className="ml-2 text-orange-600 font-medium">• Mudanças não salvas</span>
+                  )}
                 </div>
               </div>
             </div>
             
             <div className="flex items-center space-x-3">
-              <button
+              <Button
+                variant="outline"
+                size="md"
+                leftIcon={<Eye className="w-4 h-4" />}
                 onClick={() => setShowPreview(true)}
-                className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg border hover:bg-gray-50 transition-colors flex items-center space-x-2"
               >
-                <Eye className="w-4 h-4" />
-                <span>Visualizar</span>
-              </button>
+                Visualizar
+              </Button>
               
               {!editingDocument.publishedAt && (
-                <button
+                <Button
+                  variant="success"
+                  size="md"
                   onClick={publishDocument}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Publicar
-                </button>
+                </Button>
               )}
               
-              <button
+              <Button
+                variant={hasUnsavedChanges ? 'warning' : 'primary'}
+                size="md"
+                leftIcon={<Save className="w-4 h-4" />}
                 onClick={saveDocument}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
               >
-                <Save className="w-4 h-4" />
-                <span>Salvar</span>
-              </button>
+                {hasUnsavedChanges ? 'Salvar Mudanças' : 'Salvar'}
+              </Button>
             </div>
           </div>
         </div>
@@ -210,82 +264,108 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
               <div className="p-4 border-b">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">Slides</h3>
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<Plus className="w-4 h-4" />}
                     onClick={() => setShowTemplateSelector(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
               
-              <div className="max-h-96 overflow-y-auto">
+              <div 
+                ref={slidesContainerRef}
+                className="max-h-96 overflow-y-auto"
+                style={{ height: '384px' }}
+              >
                 {editingDocument.slides.length === 0 ? (
                   <div className="p-6 text-center">
                     <div className="text-gray-500 mb-3">Nenhum slide adicionado</div>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setShowTemplateSelector(true)}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
                       Adicionar primeiro slide
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <div className="p-2">
-                    {editingDocument.slides.map((slide, index) => {
-                      const template = templates.find(t => t.templateKey === slide.__component);
-                      return (
-                        <div
-                          key={index}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, index)}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDrop(e, index)}
-                          className={`p-3 mb-2 border rounded-lg cursor-pointer transition-all ${
-                            selectedSlide === index
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          } ${draggedSlide === index ? 'opacity-50' : ''}`}
-                          onClick={() => {
-                            setSelectedSlide(index);
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <GripVertical className="w-4 h-4 text-gray-400" />
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {template?.name || slide.__component}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {slide.title || slide.name || `Slide ${index + 1}`}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedSlide(index);
-                                }}
-                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                              >
-                                <Edit3 className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteSlide(index);
-                                }}
-                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div
+                    ref={slidesListRef}
+                    style={{
+                      height: `${slidesVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                                         {slidesVirtualizer.getVirtualItems().map((virtualItem) => {
+                       const index = virtualItem.index;
+                       const slide = editingDocument.slides[index];
+                       const template = templates.find(t => t.templateKey === slide.templateKey);
+                       
+                       return (
+                         <div
+                           key={index}
+                           style={{
+                             position: 'absolute',
+                             top: 0,
+                             left: 0,
+                             width: '100%',
+                             height: `${virtualItem.size}px`,
+                             transform: `translateY(${virtualItem.start}px)`,
+                           }}
+                           draggable
+                           onDragStart={(e) => handleDragStart(e, index)}
+                           onDragOver={handleDragOver}
+                           onDrop={(e) => handleDrop(e, index)}
+                           className={`p-3 mb-2 border rounded-lg cursor-pointer transition-all ${
+                             selectedSlide === index
+                               ? 'border-blue-500 bg-blue-50'
+                               : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                           } ${draggedSlide === index ? 'opacity-50' : ''}`}
+                           onClick={() => {
+                             setSelectedSlide(index);
+                           }}
+                         >
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center space-x-3">
+                               <GripVertical className="w-4 h-4 text-gray-400" />
+                               <div>
+                                 <div className="text-sm font-medium text-gray-900">
+                                   {template?.name || slide.templateKey}
+                                 </div>
+                                 <div className="text-xs text-gray-500">
+                                   Slide {index + 1}
+                                 </div>
+                               </div>
+                             </div>
+                             <div className="flex items-center space-x-1">
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setSelectedSlide(index);
+                                 }}
+                                 className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                               >
+                                 <Edit3 className="w-3 h-3" />
+                               </button>
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   deleteSlide(index);
+                                 }}
+                                 className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                               >
+                                 <Trash2 className="w-3 h-3" />
+                               </button>
+                             </div>
+                           </div>
+                         </div>
+                       );
+                     })}
                   </div>
                 )}
               </div>
@@ -298,7 +378,7 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
               <div className="bg-white rounded-xl shadow-sm border min-h-[28rem] flex flex-col">
                 <SlideEditor
                   slide={editingDocument.slides[selectedSlide]}
-                  template={templates.find(t => t.templateKey === editingDocument.slides[selectedSlide]?.__component)}
+                  template={templates.find(t => t.templateKey === editingDocument.slides[selectedSlide]?.templateKey)}
                   onUpdate={(slideData) => updateSlide(selectedSlide, slideData)}
                 />
               </div>
@@ -340,16 +420,33 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
             </div>
             
             <div className="p-4 border-t bg-gray-50">
-              <button
+              <Button
+                variant="ghost"
+                size="md"
                 onClick={() => setShowTemplateSelector(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false);
+          setSlideToDelete(null);
+        }}
+        onConfirm={confirmDeleteSlide}
+        title="Excluir Slide"
+        message="Tem certeza que deseja excluir este slide? Esta ação não pode ser desfeita."
+        type="danger"
+        confirmText="Excluir"
+        cancelText="Cancelar"
+      />
+
       <ToastContainer 
         position="top-right"
         autoClose={3000}

@@ -1,21 +1,12 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import FieldEditor from './FieldEditor';
-
-interface Field {
-  name: string;
-  type: string;
-  label: string;
-  required?: boolean;
-  defaultValue?: any;
-  allowedMediaTypes?: string[];
-  fields?: Field[];
-  rows?: number;
-}
+import Button from '../ui/Button';
+import { Field, FieldType } from '../../types';
 
 interface FieldsConfigurationProps {
   fields: Field[];
-  fieldTypes: Array<{ id: string; name: string; name: string; icon: any; description: string }>;
+  fieldTypes: Array<{ id: FieldType; name: string; icon: any; description: string }>;
   onFieldsChange: (fields: Field[]) => void;
   onAddField: () => void;
 }
@@ -37,17 +28,18 @@ export default function FieldsConfiguration({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border">
-      <div className="p-6 border-b">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Campos do Template</h3>
-          <button
+          <Button
             onClick={onAddField}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            variant="primary"
+            size="md"
+            leftIcon={<Plus className="w-4 h-4" />}
           >
-            <Plus className="w-4 h-4" />
-            <span>Adicionar Campo</span>
-          </button>
+            Adicionar Campo
+          </Button>
         </div>
       </div>
 
@@ -55,12 +47,14 @@ export default function FieldsConfiguration({
         {fields.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-gray-500 mb-3">Nenhum campo configurado</div>
-            <button
+            <Button
               onClick={onAddField}
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              variant="ghost"
+              size="md"
+              className="text-blue-600 hover:text-blue-700"
             >
               Adicionar primeiro campo
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">

@@ -1,33 +1,47 @@
 import React, { useState } from 'react';
-import { Image, Video, Mic, FileText } from 'lucide-react';
+import { Image, Video, Mic, FileText, ChevronDown } from 'lucide-react';
+import { MediaType } from '../../types';
+import Button from '../ui/Button';
+
+// Mapeamento dos tipos de mídia para as chaves do sistema
+const mediaTypeMapping: Record<string, MediaType> = {
+  images: 'image',
+  videos: 'video',
+  audios: 'audio',
+  files: 'document'
+};
 
 // Tipos de mídia disponíveis
 const mediaTypes = {
   images: {
     label: 'Imagens',
     extensions: ['JPEG', 'PNG', 'GIF', 'SVG', 'TIFF', 'ICO', 'DJVU'],
-    icon: Image
+    icon: Image,
+    type: 'image' as MediaType
   },
   videos: {
     label: 'Vídeos',
     extensions: ['MPEG', 'MP4', 'Quicktime', 'WMV', 'AVI', 'FLV'],
-    icon: Video
+    icon: Video,
+    type: 'video' as MediaType
   },
   audios: {
     label: 'Áudios',
     extensions: ['MP3', 'WAV', 'OGG'],
-    icon: Mic
+    icon: Mic,
+    type: 'audio' as MediaType
   },
   files: {
     label: 'Arquivos',
     extensions: ['PDF', 'DOC', 'DOCX', 'XLS', 'XLSX', 'PPT', 'PPTX'],
-    icon: FileText
+    icon: FileText,
+    type: 'document' as MediaType
   }
 };
 
 interface MediaTypeSelectorProps {
-  value: string[];
-  onChange: (value: string[]) => void;
+  value: MediaType[];
+  onChange: (value: MediaType[]) => void;
   label?: string;
 }
 
@@ -35,10 +49,11 @@ export default function MediaTypeSelector({ value, onChange, label }: MediaTypeS
   const [isOpen, setIsOpen] = useState(false);
 
   const handleToggleType = (type: string) => {
-    if (value.includes(type)) {
-      onChange(value.filter(t => t !== type));
+    const mediaType = mediaTypeMapping[type];
+    if (value.includes(mediaType)) {
+      onChange(value.filter(t => t !== mediaType));
     } else {
-      onChange([...value, type]);
+      onChange([...value, mediaType]);
     }
   };
 
@@ -46,7 +61,7 @@ export default function MediaTypeSelector({ value, onChange, label }: MediaTypeS
     if (value.length === Object.keys(mediaTypes).length) {
       onChange([]);
     } else {
-      onChange(Object.keys(mediaTypes));
+      onChange(Object.values(mediaTypeMapping));
     }
   };
 
@@ -54,7 +69,10 @@ export default function MediaTypeSelector({ value, onChange, label }: MediaTypeS
     if (value.length === 0) return 'Nenhum tipo selecionado';
     if (value.length === Object.keys(mediaTypes).length) return 'Todos os tipos';
     
-    const selectedLabels = value.map(type => mediaTypes[type as keyof typeof mediaTypes]?.label).filter(Boolean);
+    const selectedLabels = value.map(type => {
+      const key = Object.keys(mediaTypeMapping).find(k => mediaTypeMapping[k] === type);
+      return key ? mediaTypes[key as keyof typeof mediaTypes]?.label : '';
+    }).filter(Boolean);
     return selectedLabels.join(', ');
   };
 
@@ -67,15 +85,17 @@ export default function MediaTypeSelector({ value, onChange, label }: MediaTypeS
         {label || 'Tipos de mídia permitidos'}
       </label>
       
-      <button
+      <Button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white flex items-center justify-between hover:bg-gray-50 transition-colors"
+        variant="outline"
+        size="md"
+        rightIcon={<ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
+        className="w-full justify-between"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
         <span className="text-gray-900">{getDisplayText()}</span>
-        <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      </Button>
 
       {isOpen && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
@@ -108,12 +128,13 @@ export default function MediaTypeSelector({ value, onChange, label }: MediaTypeS
           <div className="p-3 space-y-2">
             {Object.entries(mediaTypes).map(([type, config]) => {
               const IconComponent = config.icon;
+              const isSelected = value.includes(config.type);
               return (
-                <label key={type} className="flex items-center space-x-3 cursor-pointer">
+                <label key={type} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
                   <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                    value.includes(type) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                    isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
                   }`}>
-                    {value.includes(type) && (
+                    {isSelected && (
                       <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
@@ -126,7 +147,7 @@ export default function MediaTypeSelector({ value, onChange, label }: MediaTypeS
                   <span className="text-xs text-gray-500">({config.extensions.join(', ')})</span>
                   <input
                     type="checkbox"
-                    checked={value.includes(type)}
+                    checked={isSelected}
                     onChange={() => handleToggleType(type)}
                     className="sr-only"
                   />

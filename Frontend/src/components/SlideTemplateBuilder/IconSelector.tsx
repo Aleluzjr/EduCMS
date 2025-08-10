@@ -1,4 +1,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { X } from 'lucide-react';
+import Button from '../ui/Button';
 
 interface IconSelectorProps {
   isOpen: boolean;
@@ -46,8 +48,18 @@ export default function IconSelector({ isOpen, onClose, onIconSelect, currentIco
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4">
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Escolher Ícone</h3>
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Escolher Ícone</h3>
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="sm"
+              className="p-1 hover:bg-gray-100"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
         
         <div className="p-4">
@@ -59,26 +71,28 @@ export default function IconSelector({ isOpen, onClose, onIconSelect, currentIco
                   onIconSelect(iconName);
                   onClose();
                 }}
-                className={`p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center ${
-                  currentIcon === iconName ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                className={`p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 text-center ${
+                  currentIcon === iconName ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200'
                 }`}
               >
                 <Suspense fallback={<IconFallback />}>
                   <LazyIcon iconName={iconName} />
                 </Suspense>
-                <div className="text-xs text-gray-600 mt-2">{iconName}</div>
+                <div className="text-xs text-gray-600 mt-2 font-medium">{iconName}</div>
               </button>
             ))}
           </div>
         </div>
         
-        <div className="p-4 border-t bg-gray-50">
-          <button
+        <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+          <Button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+            variant="outline"
+            size="md"
+            className="w-full"
           >
             Cancelar
-          </button>
+          </Button>
         </div>
       </div>
     </div>

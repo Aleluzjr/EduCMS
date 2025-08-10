@@ -101,6 +101,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }, 6 * 60 * 60 * 1000);
   };
 
+  // Listener para logout global disparado pela API
+  useEffect(() => {
+    const handleApiUnauthorized = (event: CustomEvent) => {
+      console.log('🚨 Logout global disparado pela API:', event.detail);
+      clearAuth();
+    };
+
+    // Adicionar listener para o evento customizado
+    window.addEventListener('api:unauthorized', handleApiUnauthorized as EventListener);
+
+    // Cleanup do listener
+    return () => {
+      window.removeEventListener('api:unauthorized', handleApiUnauthorized as EventListener);
+    };
+  }, []);
+
   useEffect(() => {
     // Verificar se há tokens salvos e validar
     const accessToken = localStorage.getItem('accessToken');

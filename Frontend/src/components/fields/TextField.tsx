@@ -1,26 +1,35 @@
 import React from 'react';
+import Input from '../ui/Input';
+import { Field } from '../../types';
 
 interface TextFieldProps {
-  label: string;
-  required?: boolean;
+  field: Field;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
+  disabled?: boolean;
 }
 
-export default function TextField({ label, required, value, onChange }: TextFieldProps) {
+export default function TextField({ field, value, onChange, error, disabled }: TextFieldProps) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.value);
+  };
+
   return (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        required={required}
-      />
-    </div>
+    <Input
+      label={field.label}
+      value={value}
+      onChange={handleChange}
+      required={field.required}
+      placeholder={field.placeholder}
+      error={error}
+      disabled={disabled}
+      id={`field-${field.id}`}
+      name={field.name}
+      type="text"
+      maxLength={field.validation?.maxLength}
+      minLength={field.validation?.minLength}
+      pattern={field.validation?.pattern}
+    />
   );
 }

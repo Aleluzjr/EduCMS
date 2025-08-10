@@ -6,6 +6,8 @@ import TemplateInfoSection from './SlideTemplateBuilder/TemplateInfoSection';
 import FieldsConfiguration from './SlideTemplateBuilder/FieldsConfiguration';
 import SubFieldsEditor from './SlideTemplateBuilder/SubFieldsEditor';
 import RestoreDraftDialog from './SlideTemplateBuilder/RestoreDraftDialog';
+import Button from './ui/Button';
+import { useToastContext } from '../contexts/ToastContext';
 
 // Carregamento lazy do IconSelector
 const IconSelector = React.lazy(() => import('./SlideTemplateBuilder/IconSelector'));
@@ -42,6 +44,7 @@ interface SlideTemplateBuilderProps {
 
 // Chave para localStorage
 const STORAGE_KEY = 'slide_template_draft';
+const STORAGE_VERSION = 1; // Versão atual do formato de dados
 
 // Tipos de campos disponíveis
 const fieldTypes = [
@@ -60,11 +63,13 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
   const [showIconSelector, setShowIconSelector] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const { success, error } = useToastContext();
 
   // Função para salvar rascunho no localStorage
   const saveDraft = (data: any) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: STORAGE_VERSION,
         ...data,
         lastSaved: new Date().toISOString()
       }));
@@ -78,7 +83,16 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
     try {
       const draft = localStorage.getItem(STORAGE_KEY);
       if (draft) {
-        return JSON.parse(draft);
+        const parsedDraft = JSON.parse(draft);
+        
+        // Verificar se a versão é compatível
+        if (parsedDraft.version !== STORAGE_VERSION) {
+          console.warn('Versão do rascunho não é compatível, ignorando...');
+          clearDraft(); // Limpar rascunho antigo automaticamente
+          return null;
+        }
+        
+        return parsedDraft;
       }
     } catch (error) {
       console.warn('Não foi possível carregar o rascunho:', error);
@@ -99,48 +113,54 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
   useEffect(() => {
     if (!template?.id) { // Apenas para novos templates
       const draft = loadDraft();
-      if (draft && !templateName && fields.length === 0) {
+      if (draft && draft.templateName) {
         setShowRestoreDialog(true);
       }
     }
-  }, []);
+  }, [template?.id]);
 
-  // Salvar rascunho automaticamente quando houver mudanças
+  // Salvar rascunho sempre que houver mudanças
   useEffect(() => {
     if (!template?.id && (templateName || fields.length > 0)) {
       const draftData = {
         templateName,
         templateIcon,
-        fields,
-        isNewTemplate: true
+        fields
       };
-      
-      // Debounce para não salvar a cada digitação
-      const timeoutId = setTimeout(() => {
-        saveDraft(draftData);
-        setHasUnsavedChanges(true);
-      }, 1000);
-
-      return () => clearTimeout(timeoutId);
+      saveDraft(draftData);
+      setHasUnsavedChanges(true);
     }
   }, [templateName, templateIcon, fields, template?.id]);
 
-  // Restaurar rascunho
+  // Evento beforeunload para mudanças não salvas
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Você tem mudanças não salvas. Tem certeza que deseja sair?';
+        return 'Você tem mudanças não salvas. Tem certeza que deseja sair?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   const restoreDraft = () => {
     const draft = loadDraft();
     if (draft) {
       setTemplateName(draft.templateName || '');
       setTemplateIcon(draft.templateIcon || 'FileText');
       setFields(draft.fields || []);
-      setHasUnsavedChanges(true);
+      setShowRestoreDialog(false);
+      success('Rascunho restaurado com sucesso!');
     }
-    setShowRestoreDialog(false);
   };
 
-  // Ignorar rascunho
   const ignoreDraft = () => {
     clearDraft();
     setShowRestoreDialog(false);
+    success('Rascunho ignorado e removido.');
   };
 
   const addField = (fieldType: string) => {
@@ -149,21 +169,13 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
       type: fieldType,
       label: `Campo ${fields.length + 1}`,
       required: false,
-      allowedMediaTypes: fieldType === 'media' ? ['images'] : undefined
+      defaultValue: '',
+      rows: 4,
+      allowedMediaTypes: undefined
     };
 
     if (fieldType === 'repeatable') {
-      newField.fields = [
-        {
-          name: 'title',
-          type: 'text',
-          label: 'Título',
-          required: true,
-          defaultValue: '',
-          rows: 3,
-          allowedMediaTypes: undefined
-        }
-      ];
+      newField.fields = [];
     }
 
     setFields([...fields, newField]);
@@ -172,19 +184,23 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
 
   const saveTemplate = async () => {
     if (!templateName.trim()) {
-      alert('Por favor, informe o nome do template');
+      error('Por favor, insira um nome para o template');
       return;
     }
 
     if (fields.length === 0) {
-      alert('Por favor, adicione pelo menos um campo');
+      error('Por favor, adicione pelo menos um campo ao template');
       return;
     }
 
     const templateData = {
-      name: templateName,
+      name: templateName.trim(),
       icon: templateIcon,
-      fields: fields
+      fields: fields.map(field => ({
+        ...field,
+        name: field.name.trim(),
+        label: field.label.trim()
+      }))
     };
 
     try {
@@ -219,27 +235,30 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
         setHasUnsavedChanges(false);
       }
       
+      success(template ? 'Template atualizado com sucesso!' : 'Template criado com sucesso!');
       onSave(savedTemplate);
     } catch (error) {
       console.error('Erro ao salvar template:', error);
-      // Não usar alert aqui, deixar o onSave tratar o erro
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao salvar template';
+      error(errorMessage);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <button
+              <Button
                 onClick={onBack}
-                className="text-gray-600 hover:text-gray-900 p-2 rounded-md hover:bg-gray-100 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-100"
               >
                 <ArrowLeft className="w-5 h-5" />
-              </button>
+              </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
                   {template ? 'Editar Template de Slide' : 'Criar Template de Slide'}
@@ -250,13 +269,14 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
               </div>
             </div>
             
-            <button
+            <Button
               onClick={saveTemplate}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
+              variant="primary"
+              size="lg"
+              leftIcon={<Save className="w-4 h-4" />}
             >
-              <Save className="w-4 h-4" />
-              <span>{template ? 'Atualizar Template' : 'Salvar Template'}</span>
-            </button>
+              {template ? 'Atualizar Template' : 'Salvar Template'}
+            </Button>
           </div>
         </div>
       </div>
