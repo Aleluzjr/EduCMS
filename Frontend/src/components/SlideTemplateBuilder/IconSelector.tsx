@@ -1,8 +1,4 @@
-import React from 'react';
-import { 
-  FileText, Type, Image, Video, Mic, Target, HelpCircle, 
-  AlignLeft, List, Grid, Book, Users, Settings, Star 
-} from 'lucide-react';
+import React, { useState, useEffect, Suspense } from 'react';
 
 interface IconSelectorProps {
   isOpen: boolean;
@@ -11,30 +7,40 @@ interface IconSelectorProps {
   currentIcon: string;
 }
 
-// Mapeamento de ícones para componentes
-const iconComponents = {
-  FileText: FileText,
-  Type: Type,
-  Image: Image,
-  Video: Video,
-  Mic: Mic,
-  Target: Target,
-  HelpCircle: HelpCircle,
-  AlignLeft: AlignLeft,
-  List: List,
-  Grid: Grid,
-  Book: Book,
-  Users: Users,
-  Settings: Settings,
-  Star: Star
-};
-
-const icons = [
+// Lista de ícones disponíveis
+const availableIcons = [
   'FileText', 'Type', 'Image', 'Video', 'Mic', 'Target', 'HelpCircle', 
   'AlignLeft', 'List', 'Grid', 'Book', 'Users', 'Settings', 'Star'
 ];
 
+// Componente de ícone lazy com fallback
+const LazyIcon = React.lazy(({ iconName }: { iconName: string }) => 
+  import(`lucide-react/dist/esm/icons/${iconName}.js`)
+    .then(module => ({ default: module.default }))
+    .catch(() => ({ default: () => <div className="w-8 h-8 bg-gray-300 rounded" /> }))
+);
+
+// Componente de fallback para carregamento de ícones
+const IconFallback = () => (
+  <div className="w-8 h-8 bg-gray-200 rounded animate-pulse" />
+);
+
 export default function IconSelector({ isOpen, onClose, onIconSelect, currentIcon }: IconSelectorProps) {
+  const [loadedIcons, setLoadedIcons] = useState<Record<string, boolean>>({});
+
+  // Carregar ícones sob demanda
+  useEffect(() => {
+    if (isOpen) {
+      const newLoadedIcons = { ...loadedIcons };
+      availableIcons.forEach(iconName => {
+        if (!newLoadedIcons[iconName]) {
+          newLoadedIcons[iconName] = true;
+        }
+      });
+      setLoadedIcons(newLoadedIcons);
+    }
+  }, [isOpen, loadedIcons]);
+
   if (!isOpen) return null;
 
   return (
@@ -46,24 +52,23 @@ export default function IconSelector({ isOpen, onClose, onIconSelect, currentIco
         
         <div className="p-4">
           <div className="grid grid-cols-4 gap-3">
-            {icons.map((iconName) => {
-              const IconComponent = iconComponents[iconName as keyof typeof iconComponents];
-              return (
-                <button
-                  key={iconName}
-                  onClick={() => {
-                    onIconSelect(iconName);
-                    onClose();
-                  }}
-                  className={`p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center ${
-                    currentIcon === iconName ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
-                >
-                  <IconComponent className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <div className="text-xs text-gray-600">{iconName}</div>
-                </button>
-              );
-            })}
+            {availableIcons.map((iconName) => (
+              <button
+                key={iconName}
+                onClick={() => {
+                  onIconSelect(iconName);
+                  onClose();
+                }}
+                className={`p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center ${
+                  currentIcon === iconName ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                }`}
+              >
+                <Suspense fallback={<IconFallback />}>
+                  <LazyIcon iconName={iconName} />
+                </Suspense>
+                <div className="text-xs text-gray-600 mt-2">{iconName}</div>
+              </button>
+            ))}
           </div>
         </div>
         

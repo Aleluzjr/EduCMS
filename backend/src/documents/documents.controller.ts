@@ -1,29 +1,38 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, ParseIntPipe, HttpStatus, HttpCode, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, ParseIntPipe, HttpStatus, HttpCode, Query, Req, UseGuards } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User } from '../entities/user.entity';
+import { Request } from 'express';
 
 @Controller('api/documents')
+@UseGuards(JwtAuthGuard)
 export class DocumentsController {
   constructor(private readonly service: DocumentsService) {}
 
   @Get()
-  async findAll(@Query('withMedia') withMedia?: string) {
-    if (withMedia === 'true') {
-      return this.service.findAll();
-    }
-    return this.service.findAll();
+  async findAll(
+    @CurrentUser() currentUser: User,
+    @Query('withMedia') withMedia?: string
+  ) {
+    return this.service.findAll(currentUser);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.service.findOne(id, currentUser);
   }
 
   // Novo endpoint para dados customizados
   @Get(':id/custom')
   async findOneCustom(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User,
     @Query('includeMedia') includeMedia?: string
   ) {
     const includeMediaFlag = includeMedia !== 'false';
@@ -31,14 +40,20 @@ export class DocumentsController {
   }
 
   @Get(':id/with-media')
-  async findOneWithMedia(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findWithMedia(id);
+  async findOneWithMedia(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.service.findWithMedia(id, currentUser);
   }
 
   // Endpoint para dados resumidos
   @Get(':id/summary')
-  async findOneSummary(@Param('id', ParseIntPipe) id: number) {
-    const document = await this.service.findOne(id);
+  async findOneSummary(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    const document = await this.service.findOne(id, currentUser);
     
     return {
       id: document.id,
@@ -53,18 +68,40 @@ export class DocumentsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createDocumentDto: CreateDocumentDto) {
-    return this.service.create(createDocumentDto);
+  async create(
+    @Body() createDocumentDto: CreateDocumentDto,
+    @CurrentUser() currentUser: User,
+    @Req() req: Request
+  ) {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    return this.service.create(createDocumentDto, currentUser, ip, userAgent);
   }
 
   @Put(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() updateDocumentDto: UpdateDocumentDto) {
-    return this.service.update(id, updateDocumentDto);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDocumentDto: UpdateDocumentDto,
+    @CurrentUser() currentUser: User,
+    @Req() req: Request
+  ) {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    return this.service.update(id, updateDocumentDto, currentUser, ip, userAgent);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User,
+    @Req() req: Request
+  ) {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    return this.service.remove(id, currentUser, ip, userAgent);
   }
 }

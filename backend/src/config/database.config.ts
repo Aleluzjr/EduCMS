@@ -7,6 +7,9 @@ export const databaseConfig: TypeOrmModuleOptions = {
   username: process.env.DB_USER || 'root',
   password: process.env.DB_PASS || '',
   database: process.env.DB_NAME || 'cms',
+  entities: [
+    'dist/**/*.entity{.ts,.js}',
+  ],
   autoLoadEntities: true,
   synchronize: process.env.NODE_ENV !== 'production', // Só sincroniza em desenvolvimento
   logging: process.env.NODE_ENV === 'development',

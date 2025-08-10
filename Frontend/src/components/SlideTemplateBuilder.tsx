@@ -1,14 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { ArrowLeft, Save } from 'lucide-react';
+import { apiRequest, ENDPOINTS } from '../config/api';
 import { SlideTemplate } from '../types';
-import { ENDPOINTS, apiRequest } from '../config/api';
-
-// Componentes separados
 import TemplateInfoSection from './SlideTemplateBuilder/TemplateInfoSection';
 import FieldsConfiguration from './SlideTemplateBuilder/FieldsConfiguration';
-import IconSelector from './SlideTemplateBuilder/IconSelector';
-import AddFieldModal from './SlideTemplateBuilder/AddFieldModal';
+import SubFieldsEditor from './SlideTemplateBuilder/SubFieldsEditor';
 import RestoreDraftDialog from './SlideTemplateBuilder/RestoreDraftDialog';
+
+// Carregamento lazy do IconSelector
+const IconSelector = React.lazy(() => import('./SlideTemplateBuilder/IconSelector'));
+
+// Carregamento lazy do AddFieldModal
+const AddFieldModal = React.lazy(() => import('./SlideTemplateBuilder/AddFieldModal'));
+
+// Componente de fallback reutilizável para carregamento lazy
+const LazyFallback = ({ message }: { message: string }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl p-8">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600 text-center">{message}</p>
+    </div>
+  </div>
+);
 
 interface Field {
   name: string;
@@ -272,18 +285,22 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
       </div>
 
       {/* Modais e Dialogs */}
-      <IconSelector
-        isOpen={showIconSelector}
-        onClose={() => setShowIconSelector(false)}
-        onIconSelect={setTemplateIcon}
-        currentIcon={templateIcon}
-      />
+      <Suspense fallback={<LazyFallback message="Carregando seletor de ícones..." />}>
+        <IconSelector
+          isOpen={showIconSelector}
+          onClose={() => setShowIconSelector(false)}
+          onIconSelect={setTemplateIcon}
+          currentIcon={templateIcon}
+        />
+      </Suspense>
 
-      <AddFieldModal
-        isOpen={showAddField}
-        onClose={() => setShowAddField(false)}
-        onFieldAdd={addField}
-      />
+      <Suspense fallback={<LazyFallback message="Carregando seletor de campos..." />}>
+        <AddFieldModal
+          isOpen={showAddField}
+          onClose={() => setShowAddField(false)}
+          onFieldAdd={addField}
+        />
+      </Suspense>
 
       <RestoreDraftDialog
         isOpen={showRestoreDialog}

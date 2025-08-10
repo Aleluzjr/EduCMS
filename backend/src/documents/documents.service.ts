@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { Document } from '../entities/document.entity';
+import { Document, DocumentStatus } from '../entities/document.entity';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { User, UserRole } from '../entities/user.entity';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction, AuditEntity } from '../entities/audit-log.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -11,23 +14,39 @@ export class DocumentsService {
   constructor(
     @InjectRepository(Document)
     private readonly repo: Repository<Document>,
+    private auditService: AuditService,
   ) {}
 
-  async findAll(): Promise<Document[]> {
-    return this.repo.find({
-      relations: ['media'],
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(currentUser: User): Promise<Document[]> {
+    if (currentUser.role === UserRole.ADMIN) {
+      return this.repo.find({
+        relations: ['media', 'owner'],
+        order: { createdAt: 'DESC' },
+      });
+    } else {
+      // EDITOR só vê seus próprios documentos
+      return this.repo.find({
+        where: { ownerId: currentUser.id },
+        relations: ['media'],
+        order: { createdAt: 'DESC' },
+      });
+    }
   }
 
-  async findOne(id: number): Promise<Document> {
+  async findOne(id: number, currentUser: User): Promise<Document> {
     const document = await this.repo.findOne({ 
       where: { id },
-      relations: ['media'],
+      relations: ['media', 'owner'],
     });
     if (!document) {
       throw new NotFoundException(`Documento com ID ${id} não encontrado`);
     }
+
+    // EDITOR só pode ver seus próprios documentos
+    if (currentUser.role === UserRole.EDITOR && document.ownerId !== currentUser.id) {
+      throw new ForbiddenException('Acesso negado: você só pode visualizar seus próprios documentos');
+    }
+
     return document;
   }
 
@@ -102,19 +121,39 @@ export class DocumentsService {
     };
   }
 
-  async create(createDocumentDto: CreateDocumentDto): Promise<Document> {
+  async create(createDocumentDto: CreateDocumentDto, currentUser: User, ip: string, userAgent: string): Promise<Document> {
     const documentData = {
       ...createDocumentDto,
       documentId: createDocumentDto.documentId || uuidv4(),
-      slides: createDocumentDto.slides || []
+      slides: createDocumentDto.slides || [],
+      ownerId: currentUser.id,
+      status: DocumentStatus.RASCUNHO
     };
     
     const doc = this.repo.create(documentData);
-    return this.repo.save(doc);
+    const savedDoc = await this.repo.save(doc);
+    
+    // Registrar auditoria
+    await this.auditService.log({
+      userId: currentUser.id,
+      action: AuditAction.CREATE,
+      entity: AuditEntity.DOCUMENT,
+      entityId: savedDoc.id,
+      ip,
+      userAgent,
+      metadata: { documentId: savedDoc.documentId, name: savedDoc.name }
+    });
+    
+    return savedDoc;
   }
 
-  async update(id: number, updateDocumentDto: UpdateDocumentDto): Promise<Document> {
-    const document = await this.findOne(id);
+  async update(id: number, updateDocumentDto: UpdateDocumentDto, currentUser: User, ip: string, userAgent: string): Promise<Document> {
+    const document = await this.findOne(id, currentUser);
+    
+    // EDITOR só pode editar seus próprios documentos
+    if (currentUser.role === UserRole.EDITOR && document.ownerId !== currentUser.id) {
+      throw new ForbiddenException('Acesso negado: você só pode editar seus próprios documentos');
+    }
     
     const updateData = {
       ...updateDocumentDto,
@@ -122,22 +161,45 @@ export class DocumentsService {
     };
     
     await this.repo.update(id, updateData);
-    return this.findOne(id);
-  }
-
-  async remove(id: number): Promise<void> {
-    const document = await this.findOne(id);
-    await this.repo.remove(document);
-  }
-
-  async findWithMedia(id: number): Promise<Document> {
-    const document = await this.repo.findOne({ 
-      where: { id },
-      relations: ['media'],
+    
+    // Registrar auditoria
+    await this.auditService.log({
+      userId: currentUser.id,
+      action: AuditAction.UPDATE,
+      entity: AuditEntity.DOCUMENT,
+      entityId: id,
+      ip,
+      userAgent,
+      metadata: { documentId: document.documentId, changes: updateDocumentDto }
     });
-    if (!document) {
-      throw new NotFoundException(`Documento com ID ${id} não encontrado`);
+    
+    return this.findOne(id, currentUser);
+  }
+
+  async remove(id: number, currentUser: User, ip: string, userAgent: string): Promise<void> {
+    const document = await this.findOne(id, currentUser);
+    
+    // Apenas ADMIN pode excluir documentos
+    if (currentUser.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Acesso negado: apenas administradores podem excluir documentos');
     }
-    return document;
+    
+    // Soft delete
+    await this.repo.softDelete(id);
+    
+    // Registrar auditoria
+    await this.auditService.log({
+      userId: currentUser.id,
+      action: AuditAction.DELETE,
+      entity: AuditEntity.DOCUMENT,
+      entityId: id,
+      ip,
+      userAgent,
+      metadata: { documentId: document.documentId, action: 'soft_delete' }
+    });
+  }
+
+  async findWithMedia(id: number, currentUser: User): Promise<Document> {
+    return this.findOne(id, currentUser);
   }
 }

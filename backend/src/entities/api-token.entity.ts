@@ -1,34 +1,34 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 
-@Entity('slide_templates')
-export class SlideTemplate {
+@Entity('api_tokens')
+export class ApiToken {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ length: 100 })
   name: string;
 
-  @Column()
-  icon: string;
+  @Column({ length: 255 })
+  tokenHash: string;
 
-  @Column({ name: 'template_key', unique: true })
-  templateKey: string;
+  @Column({ nullable: true })
+  lastUsedAt: Date;
 
-  @Column({ type: 'json', nullable: true })
-  fields: any;
+  @Column({ default: true })
+  active: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updatedAt: Date;
 
   // Relacionamentos
-  @ManyToOne(() => User, user => user.createdTemplates)
+  @ManyToOne(() => User, user => user.apiTokens)
   @JoinColumn({ name: 'created_by' })
   createdBy: User;
 
   @Column()
   createdById: number;
-}
+} 
