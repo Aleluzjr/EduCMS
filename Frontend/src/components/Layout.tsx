@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useCan } from '../hooks/useCan';
 import { 
   Menu, 
   X, 
@@ -24,10 +25,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   const navigation: NavigationItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Documentos', href: '/documentos', icon: FileText },
-    { name: 'Slide Templates', href: '/slide-templates', icon: Layers , adminOnly: true},
-    { name: 'Usuários', href: '/usuarios', icon: Users, adminOnly: true },
-    { name: 'Configurações', href: '/configuracoes', icon: Settings, adminOnly: true },
+    { name: 'Documentos', href: '/documentos', icon: FileText, required: 'documents:read' },
+    { name: 'Slide Templates', href: '/slide-templates', icon: Layers, required: 'templates:read' },
+    { name: 'Usuários', href: '/usuarios', icon: Users, required: 'users:read' },
+    { name: 'Configurações', href: '/configuracoes', icon: Settings, required: 'system:config' },
   ];
 
   const handleLogout = async () => {
@@ -39,9 +40,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
-  const filteredNavigation = navigation.filter(item => 
-    !item.adminOnly || user?.role === 'ADMIN'
-  );
+  const filteredNavigation = navigation.filter(item => {
+    // Se não tem permissões requeridas, sempre mostrar
+    if (!item.required) return true;
+    
+    // Se tem permissões requeridas, verificar se o usuário possui
+    return useCan(item.required);
+  });
 
   const getRoleVariant = (role: string) => {
     switch (role) {

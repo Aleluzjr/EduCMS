@@ -1,19 +1,22 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useCan } from '../hooks/useCan';
 import LoadingSpinner from './LoadingSpinner';
+import ForbiddenPage from '../pages/ForbiddenPage';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: 'ADMIN' | 'EDITOR' | Array<'ADMIN' | 'EDITOR'>;
+  required?: string | string[];
 }
 
 /**
- * Componente para proteger rotas baseado em autenticação e roles
+ * Componente para proteger rotas baseado em autenticação, roles e permissões
  * 
  * Exemplos de uso:
  * 
- * // Apenas autenticação (sem verificação de role)
+ * // Apenas autenticação (sem verificação de role ou permissões)
  * <ProtectedRoute>
  *   <Componente />
  * </ProtectedRoute>
@@ -28,6 +31,21 @@ interface ProtectedRouteProps {
  *   <EditorComponent />
  * </ProtectedRoute>
  * 
+ * // Permissão específica
+ * <ProtectedRoute required="users:read">
+ *   <UsersList />
+ * </ProtectedRoute>
+ * 
+ * // Múltiplas permissões (todas são necessárias)
+ * <ProtectedRoute required={['users:read', 'users:write']}>
+ *   <UserEditor />
+ * </ProtectedRoute>
+ * 
+ * // Role + permissões
+ * <ProtectedRoute requiredRole="ADMIN" required="system:config">
+ *   <SystemConfig />
+ * </ProtectedRoute>
+ * 
  * Exemplo de uso no roteamento:
  * 
  * <Route 
@@ -40,17 +58,20 @@ interface ProtectedRouteProps {
  * />
  * 
  * <Route 
- *   path="/editor" 
+ *   path="/users" 
  *   element={
- *     <ProtectedRoute requiredRole={['ADMIN', 'EDITOR']}>
- *       <EditorPage />
+ *     <ProtectedRoute required="users:read">
+ *       <UsersPage />
  *     </ProtectedRoute>
  *   } 
  * />
  */
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, required }) => {
   const { isAuthenticated, user, authReady } = useAuth();
   const location = useLocation();
+  
+  // Verificar permissões se especificado
+  const hasRequiredPermissions = required ? useCan(required) : true;
 
   // Aguardar authReady antes de decidir a renderização ou redirecionamento
   if (!authReady) {
@@ -63,7 +84,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Se requiredRole for especificado, verificar permissões
+  // Se requiredRole for especificado, verificar roles
   if (requiredRole) {
     let hasRequiredRole = false;
     
@@ -79,6 +100,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
       // Redirecionar para dashboard se não tiver permissão
       return <Navigate to="/dashboard" replace />;
     }
+  }
+
+  // Se required for especificado, verificar permissões
+  if (required && !hasRequiredPermissions) {
+    // Renderizar página de acesso negado sem redirecionar
+    return <ForbiddenPage />;
   }
 
   // Se authReady e autenticado (e com permissões se aplicável), renderizar children

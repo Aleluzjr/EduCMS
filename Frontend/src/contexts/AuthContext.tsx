@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     isLoading: true,
     isRefreshing: false,
     authReady: false,
+    permissions: [],
   });
 
   const scheduler = new RefreshScheduler();
@@ -65,6 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       isLoading: false,
       isRefreshing: false,
       authReady: true,
+      permissions: [],
     });
     
     authStorage.clearTokens();
@@ -103,7 +105,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
           isAuthenticated: true,
           isLoading: false,
           isRefreshing: false,
-          authReady: true
+          authReady: true,
+          permissions: data.user?.permissions || []
         };
 
         setAuthState(newAuthState);
@@ -173,19 +176,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       const { type, data } = message;
       
       switch (type) {
-                 case 'login':
-         case 'refresh':
-           if (data?.user && data?.accessToken && data?.refreshToken) {
-             setAuthState(prev => ({
-               ...prev,
-               user: data.user!,
-               accessToken: data.accessToken!,
-               refreshToken: data.refreshToken!,
-               isAuthenticated: true,
-               isLoading: false,
-               isRefreshing: false,
-               authReady: true
-             }));
+                         case 'login':
+        case 'refresh':
+          if (data?.user && data?.accessToken && data?.refreshToken) {
+            setAuthState(prev => ({
+              ...prev,
+              user: data.user!,
+              accessToken: data.accessToken!,
+              refreshToken: data.refreshToken!,
+              isAuthenticated: true,
+              isLoading: false,
+              isRefreshing: false,
+              authReady: true,
+              permissions: data.user!.permissions || []
+            }));
             
             if (persistAccessToken) {
               authStorage.setAccessToken(data.accessToken);
@@ -254,7 +258,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         isAuthenticated: true,
         isLoading: false,
         isRefreshing: false,
-        authReady: true
+        authReady: true,
+        permissions: data.user?.permissions || []
       };
 
       setAuthState(newAuthState);
@@ -303,17 +308,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     if (authState.user) {
       setAuthState(prev => ({
         ...prev,
-        user: { ...prev.user!, ...userData }
+        user: { ...prev.user!, ...userData },
+        permissions: userData.permissions || prev.permissions
       }));
     }
   };
+
+  // Helpers de permissões
+  const can = useCallback((permission: string): boolean => {
+    return authState.permissions.includes(permission);
+  }, [authState.permissions]);
+
+  const canAny = useCallback((permissions: string[]): boolean => {
+    return permissions.some(perm => authState.permissions.includes(perm));
+  }, [authState.permissions]);
+
+  const canAll = useCallback((permissions: string[]): boolean => {
+    return permissions.every(perm => authState.permissions.includes(perm));
+  }, [authState.permissions]);
 
   const value: AuthContextType = {
     ...authState,
     login,
     logout,
     refreshAuth,
-    updateUser
+    updateUser,
+    can,
+    canAny,
+    canAll
   };
 
   return (

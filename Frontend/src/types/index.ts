@@ -212,6 +212,7 @@ export interface NavigationItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  required?: string | string[];
   badge?: number;
 }
 

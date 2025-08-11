@@ -5,6 +5,7 @@ import {
   ApiResponse,
   ApiError 
 } from '../config/api';
+import { useToast } from './useToast';
 
 interface UseApiState<T> {
   data: T | null;
@@ -97,6 +98,7 @@ export const useApi = <T = any>(): UseApiReturn<T> => {
  * const { execute, data, error, isLoading } = useAuthApi(refreshAuth);
  */
 export const useAuthApi = <T = any>(refreshAuthFn?: () => Promise<void>): UseApiReturn<T> => {
+  const toast = useToast();
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     error: null,
@@ -118,6 +120,11 @@ export const useAuthApi = <T = any>(refreshAuthFn?: () => Promise<void>): UseApi
           success: true
         });
       } else if (response.error) {
+        // Tratamento específico para erro 403 (acesso negado)
+        if (response.error.status === 403) {
+          toast.error('Acesso negado. Você não possui permissão para esta ação.');
+        }
+        
         setState({
           data: null,
           error: response.error,
@@ -170,12 +177,27 @@ export const useAuthApi = <T = any>(refreshAuthFn?: () => Promise<void>): UseApi
  * const { create, update, get, remove, data, error, isLoading } = useCrudApi(refreshAuth);
  */
 export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
+  const toast = useToast();
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     error: null,
     isLoading: false,
     success: false
   });
+
+  // Função auxiliar para tratar erros com toast específico para 403
+  const handleError = useCallback((error: ApiError) => {
+    if (error.status === 403) {
+      toast.error('Acesso negado. Você não possui permissão para esta ação.');
+    }
+    
+    setState({
+      data: null,
+      error,
+      isLoading: false,
+      success: false
+    });
+  }, [toast]);
 
   const create = useCallback(async (url: string, data: any) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -195,12 +217,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
           success: true
         });
       } else if (response.error) {
-        setState({
-          data: null,
-          error: response.error,
-          isLoading: false,
-          success: false
-        });
+        handleError(response.error);
       }
     } catch (error) {
       setState({
@@ -214,7 +231,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
         success: false
       });
     }
-  }, [refreshAuthFn]);
+  }, [refreshAuthFn, handleError]);
 
   const update = useCallback(async (url: string, data: any) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -234,12 +251,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
           success: true
         });
       } else if (response.error) {
-        setState({
-          data: null,
-          error: response.error,
-          isLoading: false,
-          success: false
-        });
+        handleError(response.error);
       }
     } catch (error) {
       setState({
@@ -253,7 +265,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
         success: false
       });
     }
-  }, [refreshAuthFn]);
+  }, [refreshAuthFn, handleError]);
 
   const get = useCallback(async (url: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -271,12 +283,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
           success: true
         });
       } else if (response.error) {
-        setState({
-          data: null,
-          error: response.error,
-          isLoading: false,
-          success: false
-        });
+        handleError(response.error);
       }
     } catch (error) {
       setState({
@@ -290,7 +297,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
         success: false
       });
     }
-  }, [refreshAuthFn]);
+  }, [refreshAuthFn, handleError]);
 
   const remove = useCallback(async (url: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -308,12 +315,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
           success: true
         });
       } else if (response.error) {
-        setState({
-          data: null,
-          error: response.error,
-          isLoading: false,
-          success: false
-        });
+        handleError(response.error);
       }
     } catch (error) {
       setState({
@@ -327,7 +329,7 @@ export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
         success: false
       });
     }
-  }, [refreshAuthFn]);
+  }, [refreshAuthFn, handleError]);
 
   const reset = useCallback(() => {
     setState({

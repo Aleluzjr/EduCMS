@@ -3,6 +3,7 @@ export interface User {
   name: string;
   email: string;
   role: 'ADMIN' | 'EDITOR';
+  permissions: string[];
 }
 
 export interface AuthState {
@@ -13,6 +14,7 @@ export interface AuthState {
   isLoading: boolean;
   isRefreshing: boolean;
   authReady: boolean;
+  permissions: string[];
 }
 
 export interface AuthContextType extends AuthState {
@@ -20,6 +22,9 @@ export interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   refreshAuth: (refreshToken?: string) => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
+  can: (permission: string) => boolean;
+  canAny: (permissions: string[]) => boolean;
+  canAll: (permissions: string[]) => boolean;
 }
 
 export interface AuthBroadcastMessage {

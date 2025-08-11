@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -24,7 +25,6 @@ const PageFallback = ({ message }: { message: string }) => (
 );
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
@@ -48,66 +48,54 @@ function AppContent() {
         } 
       />
 
-      {/* Rotas protegidas - apenas para usuários autenticados */}
-      {isAuthenticated ? (
-        <Route path="/dashboard" element={
+      {/* Rotas protegidas com verificação de permissões */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
           <Layout>
             <DashboardPage />
           </Layout>
-        } />
-      ) : (
-        <Route path="/dashboard" element={<Navigate to="/login" replace />} />
-      )}
+        </ProtectedRoute>
+      } />
 
-      {isAuthenticated ? (
-        <Route path="/documentos" element={
+      <Route path="/documentos" element={
+        <ProtectedRoute required="documents:read">
           <Layout>
             <DocumentosPage />
           </Layout>
-        } />
-      ) : (
-        <Route path="/documentos" element={<Navigate to="/login" replace />} />
-      )}
+        </ProtectedRoute>
+      } />
 
-      {isAuthenticated ? (
-        <Route path="/documentos/:id" element={
+      <Route path="/documentos/:id" element={
+        <ProtectedRoute required="documents:read">
           <Layout>
             <DocumentosPage />
           </Layout>
-        } />
-      ) : (
-        <Route path="/documentos/:id" element={<Navigate to="/login" replace />} />
-      )}
+        </ProtectedRoute>
+      } />
 
-      {isAuthenticated ? (
-        <Route path="/documentos/:id/editar" element={
+      <Route path="/documentos/:id/editar" element={
+        <ProtectedRoute required="documents:write">
           <Layout>
             <DocumentosPage />
           </Layout>
-        } />
-      ) : (
-        <Route path="/documentos/:id/editar" element={<Navigate to="/login" replace />} />
-      )}
+        </ProtectedRoute>
+      } />
 
-      {isAuthenticated ? (
-        <Route path="/slide-templates" element={
+      <Route path="/slide-templates" element={
+        <ProtectedRoute required="templates:read">
           <Layout>
             <SlideTemplatesPage />
           </Layout>
-        } />
-      ) : (
-        <Route path="/slide-templates" element={<Navigate to="/login" replace />} />
-      )}
+        </ProtectedRoute>
+      } />
 
-      {isAuthenticated ? (
-        <Route path="/usuarios" element={
+      <Route path="/usuarios" element={
+        <ProtectedRoute required="users:read">
           <Layout>
             <UsuariosPage />
           </Layout>
-        } />
-      ) : (
-        <Route path="/usuarios" element={<Navigate to="/login" replace />} />
-      )}
+        </ProtectedRoute>
+      } />
 
       {/* Redirecionar rotas não encontradas */}
       <Route path="*" element={<Navigate to="/" replace />} />

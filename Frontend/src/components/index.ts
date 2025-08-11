@@ -9,6 +9,7 @@ export { default as Tag } from './ui/Tag';
 export { default as Layout } from './Layout';
 export { default as ProtectedRoute } from './ProtectedRoute';
 export { default as AuthContainer } from './AuthContainer';
+export { default as PermissionGuard } from './PermissionGuard';
 
 // Componentes de Autenticação
 export { default as LoginForm } from './LoginForm';

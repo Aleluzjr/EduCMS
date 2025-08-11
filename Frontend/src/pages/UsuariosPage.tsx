@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { User, CreateUserData, UpdateUserData, UserStats } from '../types';
 import { apiRequestWithAuth } from '../config/api';
+import { PermissionGuard } from '../components';
 import { 
   Plus, 
   Edit, 
@@ -124,7 +125,7 @@ const UsuariosPage: React.FC = () => {
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error('Erro ao criar usuário');
+      toast.error('Erro ao criar usuário');
     }
   };
 
@@ -138,14 +139,14 @@ const UsuariosPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
       });
-      showToast.success('Usuário atualizado com sucesso!');
+      toast.success('Usuário atualizado com sucesso!');
       setShowEditModal(false);
       setSelectedUser(null);
       setEditForm({ name: '', email: '', role: 'EDITOR' });
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error('Erro ao atualizar usuário');
+      toast.error('Erro ao atualizar usuário');
     }
   };
 
@@ -155,13 +156,13 @@ const UsuariosPage: React.FC = () => {
     
     try {
       await apiRequestWithAuth(`/users/${selectedUser.id}`, { method: 'DELETE' });
-      showToast.success('Usuário removido com sucesso!');
+      toast.success('Usuário removido com sucesso!');
       setShowDeleteModal(false);
       setSelectedUser(null);
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error('Erro ao remover usuário');
+      toast.error('Erro ao remover usuário');
     }
   };
 
@@ -169,11 +170,11 @@ const UsuariosPage: React.FC = () => {
   const handleToggleActive = async (user: User) => {
     try {
       await apiRequestWithAuth(`/users/${user.id}/toggle-active`, { method: 'PUT' });
-      showToast.success(`Usuário ${user.active ? 'desativado' : 'ativado'} com sucesso!`);
+      toast.success(`Usuário ${user.active ? 'desativado' : 'ativado'} com sucesso!`);
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error('Erro ao alterar status do usuário');
+      toast.error('Erro ao alterar status do usuário');
     }
   };
 
@@ -195,8 +196,9 @@ const UsuariosPage: React.FC = () => {
   };
 
   // Formatar data
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
