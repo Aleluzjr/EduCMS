@@ -14,6 +14,7 @@ import { MediaModule } from './media/media.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { UsersModule } from './users/users.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { DbTestController } from './db-test.controller';
 import { databaseConfig } from './config/database.config';
 import { HttpExceptionInterceptor } from './common/interceptors/http-exception.interceptor';
@@ -32,6 +33,7 @@ import { HttpExceptionInterceptor } from './common/interceptors/http-exception.i
     AuthModule,
     AuditModule,
     UsersModule,
+    PermissionsModule,
   ],
   controllers: [
     AppController,

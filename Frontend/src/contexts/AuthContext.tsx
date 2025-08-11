@@ -1,17 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { apiRequest } from '../config/api';
-import { useToastContext } from './ToastContext';
-import {
-  User,
-  AuthState,
-  AuthContextType,
-  LogoutReason,
-  authStorage,
-  jwtUtils,
-  RefreshScheduler,
-  RefreshManager,
-  AuthBroadcaster
-} from './auth';
+import { useToast } from '../hooks/useToast';
+import { RefreshScheduler, RefreshManager, AuthBroadcaster, authStorage } from './auth';
+import { AuthState, User, AuthContextType } from './auth/types';
 
 const DEBUG_AUTH = false;
 
@@ -34,7 +25,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   children, 
   persistAccessToken = false
 }) => {
-  const toast = useToastContext();
+  const toast = useToast();
   
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -52,22 +43,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const broadcaster = new AuthBroadcaster();
 
   // Função para limpar autenticação
-  const clearAuth = useCallback((shouldBroadcast: boolean = true, reason?: LogoutReason) => {
+  const clearAuth = useCallback((shouldBroadcast: boolean = true, reason?: string) => {
     DEBUG_AUTH && console.debug('clearAuth chamado:', { shouldBroadcast, reason });
     
     scheduler.cancel();
-    refreshManager.reset();
     
-    setAuthState({
+    setAuthState(prev => ({
+      ...prev,
       user: null,
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       isRefreshing: false,
-      authReady: true,
       permissions: [],
-    });
+    }));
     
     authStorage.clearTokens();
     
@@ -82,58 +72,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   // Função para refresh de token
   const refreshAuth = useCallback(async (refreshToken?: string): Promise<void> => {
-    DEBUG_AUTH && console.debug('Iniciando refresh de token...');
+    DEBUG_AUTH && console.debug('🔄 Iniciando refresh de token...');
     
     return refreshManager.runOnce(async () => {
       const tokenToUse = refreshToken || authState.refreshToken;
       if (!tokenToUse) {
+        DEBUG_AUTH && console.debug('❌ Refresh token não disponível');
         throw new Error('Refresh token não disponível');
       }
 
-      const response = await apiRequest('/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: tokenToUse })
-      });
+      try {
+        DEBUG_AUTH && console.debug('📡 Fazendo requisição de refresh...');
+        const response = await apiRequest('/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: tokenToUse })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const newAuthState = {
-          user: data.user,
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-          isAuthenticated: true,
-          isLoading: false,
-          isRefreshing: false,
-          authReady: true,
-          permissions: data.user?.permissions || []
-        };
+        if (response.ok) {
+          const data = await response.json();
+          DEBUG_AUTH && console.debug('✅ Refresh bem-sucedido, atualizando estado...');
+          
+          const newAuthState = {
+            user: data.user,
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token,
+            isAuthenticated: true,
+            isLoading: false,
+            isRefreshing: false,
+            authReady: true,
+            permissions: data.user?.permissions || []
+          };
 
-        setAuthState(newAuthState);
-        
-        if (persistAccessToken) {
-          authStorage.setAccessToken(data.access_token);
-        }
-        authStorage.setRefreshToken(data.refresh_token);
+          setAuthState(newAuthState);
+          
+          if (persistAccessToken) {
+            authStorage.setAccessToken(data.access_token);
+          }
+          authStorage.setRefreshToken(data.refresh_token);
 
-        // Agendar próximo refresh
-        scheduler.scheduleRefresh(data.access_token, () => {
-          refreshAuth().catch(() => {
-            clearAuth(true, 'expiration');
+          // Agendar próximo refresh
+          scheduler.scheduleRefresh(data.access_token, () => {
+            refreshAuth().catch((error) => {
+              DEBUG_AUTH && console.debug('❌ Refresh agendado falhou:', error);
+              clearAuth(true, 'expiration');
+            });
           });
-        });
 
-        // Enviar broadcast
-        broadcaster.send('refresh', {
-          user: data.user,
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token
-        });
-      } else if (response.status === 401 || response.status === 403) {
+          // Enviar broadcast
+          broadcaster.send('refresh', {
+            user: data.user,
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token
+          });
+        } else {
+          const errorText = await response.text();
+          DEBUG_AUTH && console.debug('❌ Refresh falhou:', response.status, errorText);
+          
+          if (response.status === 401 || response.status === 403) {
+            clearAuth(true, 'failed_refresh');
+            throw new Error(`Token inválido: ${response.status}`);
+          } else {
+            throw new Error(`Erro na requisição: ${response.status}`);
+          }
+        }
+      } catch (error) {
+        DEBUG_AUTH && console.debug('❌ Erro durante refresh:', error);
         clearAuth(true, 'failed_refresh');
-        throw new Error('Token inválido');
-      } else {
-        throw new Error('Erro na requisição');
+        throw error;
       }
     });
   }, [authState.refreshToken, persistAccessToken, clearAuth]);
@@ -141,24 +147,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   // Listener para eventos de API não autorizada
   useEffect(() => {
     const handleApiUnauthorized = async (event: CustomEvent) => {
-      DEBUG_AUTH && console.debug('Evento de API não autorizada recebido:', event.detail);
+      DEBUG_AUTH && console.debug('🚨 Evento de API não autorizada recebido:', event.detail);
       
       if (window.location.pathname.startsWith('/login')) {
+        DEBUG_AUTH && console.debug('📍 Ignorando evento em página de login');
         return;
       }
 
       if (authState.isRefreshing) {
+        DEBUG_AUTH && console.debug('🔄 Ignorando evento durante refresh em andamento');
         return;
       }
 
       if (!authState.refreshToken) {
+        DEBUG_AUTH && console.debug('❌ Sem refresh token, disparando logout');
         clearAuth(true, 'expiration');
         return;
       }
 
       try {
+        DEBUG_AUTH && console.debug('🔄 Tentando refresh via evento...');
         await refreshAuth(authState.refreshToken);
+        DEBUG_AUTH && console.debug('✅ Refresh via evento bem-sucedido');
       } catch (error) {
+        DEBUG_AUTH && console.debug('❌ Refresh via evento falhou:', error);
         clearAuth(true, 'failed_refresh');
       }
     };
@@ -176,7 +188,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       const { type, data } = message;
       
       switch (type) {
-                         case 'login':
+        case 'login':
         case 'refresh':
           if (data?.user && data?.accessToken && data?.refreshToken) {
             setAuthState(prev => ({
@@ -220,15 +232,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   // Bootstrap da sessão
   useEffect(() => {
     const bootstrapSession = async () => {
-      DEBUG_AUTH && console.debug('Iniciando bootstrap da sessão...');
+      DEBUG_AUTH && console.debug('🚀 Iniciando bootstrap da sessão...');
       
       const refreshToken = authStorage.getRefreshToken();
       if (refreshToken) {
         try {
+          DEBUG_AUTH && console.debug('🔄 Tentando refresh inicial...');
           await refreshAuth(refreshToken);
+          DEBUG_AUTH && console.debug('✅ Bootstrap bem-sucedido');
         } catch (error) {
-          DEBUG_AUTH && console.debug('Refresh inicial falhou:', error);
+          DEBUG_AUTH && console.debug('❌ Refresh inicial falhou:', error);
+          // Limpar tokens inválidos
+          authStorage.clearTokens();
         }
+      } else {
+        DEBUG_AUTH && console.debug('ℹ️ Sem refresh token para bootstrap');
       }
       
       setAuthState(prev => ({ ...prev, authReady: true }));

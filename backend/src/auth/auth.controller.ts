@@ -76,11 +76,15 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser() user: User) {
+    // Obter permissões do usuário
+    const permissions = await this.authService.getUserPermissions(user.id);
+    
     return {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      permissions
     };
   }
 } 

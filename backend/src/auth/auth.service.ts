@@ -7,6 +7,7 @@ import { User, UserRole } from '../entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuditLog, AuditAction, AuditEntity } from '../entities/audit-log.entity';
+import { PermissionsService } from '../permissions/permissions.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
     private jwtService: JwtService,
+    private permissionsService: PermissionsService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -41,8 +43,16 @@ export class AuthService {
     // Atualizar último login
     await this.userRepository.update(user.id, { lastLoginAt: new Date() });
 
+    // Obter permissões do usuário
+    const permissions = await this.permissionsService.getUserPermissions(user.id);
+
     // Gerar tokens
-    const payload = { email: user.email, sub: user.id, role: user.role };
+    const payload = { 
+      email: user.email, 
+      sub: user.id, 
+      role: user.role,
+      permissions 
+    };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '24h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
@@ -63,7 +73,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        permissions
       }
     };
   }
@@ -160,7 +171,15 @@ export class AuthService {
         throw new UnauthorizedException('Usuário não encontrado');
       }
 
-      const newPayload = { email: user.email, sub: user.id, role: user.role };
+      // Obter permissões do usuário
+      const permissions = await this.permissionsService.getUserPermissions(user.id);
+
+      const newPayload = { 
+        email: user.email, 
+        sub: user.id, 
+        role: user.role,
+        permissions 
+      };
       const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '24h' });
 
       return {
@@ -169,7 +188,8 @@ export class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role
+          role: user.role,
+          permissions
         }
       };
     } catch (error) {
@@ -196,5 +216,9 @@ export class AuthService {
 
   async getUserById(id: number): Promise<User | null> {
     return this.userRepository.findOne({ where: { id, active: true } });
+  }
+
+  async getUserPermissions(userId: number): Promise<string[]> {
+    return this.permissionsService.getUserPermissions(userId);
   }
 } 

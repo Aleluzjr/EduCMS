@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../entities/user.entity';
+import { PermissionsService } from '../../permissions/permissions.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -12,6 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private permissionsService: PermissionsService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -49,12 +51,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       console.log('JWT Strategy - Usuário validado com sucesso:', user.id);
     }
 
+    // Obter permissões do usuário
+    const permissions = await this.permissionsService.getUserPermissions(user.id);
+
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       name: user.name,
-      active: user.active
+      active: user.active,
+      permissions
     };
   }
 } 

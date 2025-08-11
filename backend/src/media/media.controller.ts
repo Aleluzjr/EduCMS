@@ -12,18 +12,27 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MediaService } from './media.service';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PoliciesGuard } from '../auth/guards/policies.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @Controller('api/media')
+@UseGuards(JwtAuthGuard, PoliciesGuard)
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Post()
+  @RequirePermissions('media:write')
+  @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -65,6 +74,7 @@ export class MediaController {
   }
 
   @Get()
+  @RequirePermissions('media:read')
   async findAll(@Query('documentId') documentId?: string) {
     if (documentId) {
       return this.mediaService.findByDocumentId(parseInt(documentId));
@@ -73,21 +83,26 @@ export class MediaController {
   }
 
   @Get('stats')
+  @RequirePermissions('media:read')
   async getStats() {
     return this.mediaService.getMediaStats();
   }
 
   @Get(':id')
+  @RequirePermissions('media:read')
   async findOne(@Param('id') id: string) {
     return this.mediaService.findOne(+id);
   }
 
   @Patch(':id')
+  @RequirePermissions('media:write')
   async update(@Param('id') id: string, @Body() updateMediaDto: any) {
     return this.mediaService.update(+id, updateMediaDto);
   }
 
   @Delete(':id')
+  @RequirePermissions('media:write')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     return this.mediaService.remove(+id);
   }

@@ -4,16 +4,19 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PoliciesGuard } from '../auth/guards/policies.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../entities/user.entity';
 import { Request } from 'express';
 
 @Controller('api/documents')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PoliciesGuard)
 export class DocumentsController {
   constructor(private readonly service: DocumentsService) {}
 
   @Get()
+  @RequirePermissions('documents:read')
   async findAll(
     @CurrentUser() currentUser: User,
     @Query() query: QueryDocumentsDto
@@ -22,6 +25,7 @@ export class DocumentsController {
   }
 
   @Get(':id')
+  @RequirePermissions('documents:read')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() currentUser: User
@@ -31,6 +35,7 @@ export class DocumentsController {
 
   // Novo endpoint para dados customizados
   @Get(':id/custom')
+  @RequirePermissions('documents:read')
   async findOneCustom(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() currentUser: User,
@@ -41,6 +46,7 @@ export class DocumentsController {
   }
 
   @Get(':id/with-media')
+  @RequirePermissions('documents:read')
   async findOneWithMedia(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() currentUser: User
@@ -50,6 +56,7 @@ export class DocumentsController {
 
   // Endpoint para dados resumidos
   @Get(':id/summary')
+  @RequirePermissions('documents:read')
   async findOneSummary(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() currentUser: User
@@ -68,6 +75,7 @@ export class DocumentsController {
   }
 
   @Post()
+  @RequirePermissions('documents:write')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createDocumentDto: CreateDocumentDto,
@@ -81,6 +89,7 @@ export class DocumentsController {
   }
 
   @Put(':id')
+  @RequirePermissions('documents:write')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDocumentDto: UpdateDocumentDto,
@@ -94,6 +103,7 @@ export class DocumentsController {
   }
 
   @Delete(':id')
+  @RequirePermissions('documents:write')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id', ParseIntPipe) id: number,

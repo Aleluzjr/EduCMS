@@ -350,17 +350,21 @@ export const apiRequestWithAuth = async (
         const { refreshToken } = getAuthTokens(false);
         
         if (refreshToken) {
-          let newAccessToken = await refreshAuthToken(refreshToken, false);
-          
-          if (newAccessToken) {
-            const newOptions = {
-              ...options,
-              headers: {
-                ...options.headers,
-                'Authorization': `Bearer ${newAccessToken}`
-              }
-            };
-            return await apiRequest(url, newOptions);
+          try {
+            let newAccessToken = await refreshAuthToken(refreshToken, false);
+            
+            if (newAccessToken) {
+              const newOptions = {
+                ...options,
+                headers: {
+                  ...options.headers,
+                  'Authorization': `Bearer ${newAccessToken}`
+                }
+              };
+              return await apiRequest(url, newOptions);
+            }
+          } catch (autoRefreshError) {
+            // Refresh automático falhou
           }
         }
         

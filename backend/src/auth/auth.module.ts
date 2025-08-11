@@ -9,11 +9,13 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { User } from '../entities/user.entity';
 import { AuditLog } from '../entities/audit-log.entity';
+import { PermissionsModule } from '../permissions/permissions.module';
 
 @Module({
   imports: [
     PassportModule,
     TypeOrmModule.forFeature([User, AuditLog]),
+    PermissionsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
