@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, Mail, User, LogIn, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User, LogIn, AlertTriangle, Home } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useForm, usePasswordField, useCapsLock } from '../hooks';
 import { validators } from '../utils';
@@ -14,10 +14,19 @@ interface LoginFormData {
 
 const LoginForm: React.FC = () => {
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const passwordField = usePasswordField();
   const isCapsLockOn = useCapsLock();
   const navigate = useNavigate();
+
+  // Função para navegar adequadamente baseada no estado de autenticação
+  const handleNavigation = () => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    } else {
+      navigate('/');
+    }
+  };
 
   const { values, errors, loading, setFieldValue, handleSubmit } = useForm<LoginFormData>({
     initialValues: {
@@ -51,6 +60,20 @@ const LoginForm: React.FC = () => {
 
   return (
     <div className="w-full max-w-md mx-auto">
+      {/* Botão Voltar - Posicionado acima da caixa de login */}
+      <div className="mb-4 text-center">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleNavigation}
+          className="text-gray-600 hover:text-gray-800 border-gray-300 hover:border-gray-400"
+          leftIcon={isAuthenticated ? undefined : <Home className="w-4 h-4" />}
+        >
+          {isAuthenticated ? '← Voltar ao Dashboard' : '← Voltar ao Início'}
+        </Button>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">

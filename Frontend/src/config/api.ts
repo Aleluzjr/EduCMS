@@ -154,7 +154,11 @@ const refreshAuthToken = async (refreshToken: string, persistAccessToken: boolea
     const response = await fetch(`${API_CONFIG.BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
+      credentials: 'include',
+      body: JSON.stringify({ 
+        refreshToken,
+        refresh_token: refreshToken // Enviar em ambos os formatos para compatibilidade
+      })
     });
 
     if (response.ok) {
@@ -166,9 +170,11 @@ const refreshAuthToken = async (refreshToken: string, persistAccessToken: boolea
       localStorage.setItem('refreshToken', data.refresh_token);
       
       return data.access_token;
+    } else {
+      console.error('Refresh token falhou:', response.status, await response.text());
     }
-  } catch {
-    // Erro no refresh do token
+  } catch (error) {
+    console.error('Erro no refresh do token:', error);
   }
   return null;
 };

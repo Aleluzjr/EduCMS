@@ -105,7 +105,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
             'Content-Type': 'application/json'
           },
           credentials: 'include',
-          body: JSON.stringify({ refresh_token: tokenToUse })
+          body: JSON.stringify({ 
+            refresh_token: tokenToUse,
+            refreshToken: tokenToUse // Enviar em ambos os formatos para compatibilidade
+          })
         });
 
         DEBUG_AUTH && console.debug('📊 Resposta do refresh:', { status: response.status, ok: response.ok });
@@ -148,15 +151,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
           const errorText = await response.text();
           DEBUG_AUTH && console.debug('❌ Refresh falhou:', response.status, errorText);
           
+          let errorMessage = 'Erro desconhecido';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || errorData.error || `Erro ${response.status}`;
+          } catch {
+            errorMessage = `Erro ${response.status}: ${errorText}`;
+          }
+          
           if (response.status === 401 || response.status === 403) {
             clearAuth(true, 'failed_refresh');
-            throw new Error(`Token inválido: ${response.status}`);
+            throw new Error(`Token inválido: ${errorMessage}`);
           } else {
-            throw new Error(`Erro na requisição: ${response.status}`);
+            throw new Error(`Erro na requisição: ${errorMessage}`);
           }
         }
       } catch (error) {
         DEBUG_AUTH && console.debug('❌ Erro durante refresh:', error);
+        
+        // Se for erro de rede, não deslogar imediatamente
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new Error('Erro de conexão com o servidor');
+        }
+        
         clearAuth(true, 'failed_refresh');
         throw error;
       }

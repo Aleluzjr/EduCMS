@@ -162,17 +162,46 @@ export class AuthService {
 
   async refreshToken(refreshToken: string): Promise<any> {
     try {
+      if (!refreshToken) {
+        throw new UnauthorizedException('Refresh token não fornecido');
+      }
+
+      // Log para debug em desenvolvimento
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Refresh token solicitado para:', refreshToken.substring(0, 20) + '...');
+      }
+
       const payload = this.jwtService.verify(refreshToken);
+      
+      if (!payload || !payload.sub) {
+        throw new UnauthorizedException('Payload do token inválido');
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📋 Payload decodificado:', { sub: payload.sub, email: payload.email, role: payload.role });
+      }
+
       const user = await this.userRepository.findOne({
         where: { id: payload.sub, active: true }
       });
 
       if (!user) {
-        throw new UnauthorizedException('Usuário não encontrado');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Usuário não encontrado ou inativo:', payload.sub);
+        }
+        throw new UnauthorizedException('Usuário não encontrado ou inativo');
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Usuário encontrado:', { id: user.id, email: user.email, role: user.role, active: user.active });
       }
 
       // Obter permissões do usuário
       const permissions = await this.permissionsService.getUserPermissions(user.id);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔑 Permissões obtidas:', permissions);
+      }
 
       const newPayload = { 
         email: user.email, 
@@ -180,8 +209,22 @@ export class AuthService {
         role: user.role,
         permissions 
       };
-      const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '24h' });
-      const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '30d' });
+      
+      const newAccessToken = this.jwtService.sign(newPayload, { 
+        expiresIn: '24h',
+        issuer: 'cms-api',
+        audience: 'cms-users'
+      });
+      const newRefreshToken = this.jwtService.sign(newPayload, { 
+        expiresIn: '30d',
+        issuer: 'cms-api',
+        audience: 'cms-users'
+      });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Refresh bem-sucedido para usuário:', user.email);
+        console.log('🆕 Novos tokens gerados - Access:', newAccessToken.substring(0, 20) + '...', 'Refresh:', newRefreshToken.substring(0, 20) + '...');
+      }
 
       return {
         access_token: newAccessToken,
@@ -195,7 +238,22 @@ export class AuthService {
         }
       };
     } catch (error) {
-      throw new UnauthorizedException('Token inválido');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ Erro no refresh:', error.message);
+        console.log('❌ Tipo do erro:', error.name);
+        console.log('❌ Stack trace:', error.stack);
+      }
+      
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      
+      // Se for erro de JWT (expired, invalid, etc)
+      if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+        throw new UnauthorizedException('Token inválido ou expirado');
+      }
+      
+      throw new UnauthorizedException('Erro interno na validação do token');
     }
   }
 

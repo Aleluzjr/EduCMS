@@ -246,14 +246,13 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
         setHasUnsavedChanges(false);
       }
       
-      success(template ? 'Template atualizado com sucesso!' : 'Template criado com sucesso!');
-      onSave(savedTemplate);
-    } catch (error) {
+  onSave(savedTemplate);
+    } catch (err) {
       // Log silencioso em produção
       if (process.env.NODE_ENV === 'development') {
         console.error('Erro ao salvar template');
       }
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao salvar template';
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao salvar template';
       error(errorMessage);
     }
   };

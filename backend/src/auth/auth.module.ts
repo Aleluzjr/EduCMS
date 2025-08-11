@@ -18,10 +18,24 @@ import { PermissionsModule } from '../permissions/permissions.module';
     PermissionsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
-        signOptions: { expiresIn: '24h' },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          console.warn('⚠️ JWT_SECRET não configurado, usando chave padrão (NÃO SEGURO PARA PRODUÇÃO)');
+        }
+        return {
+          secret: secret || 'your-secret-key-change-this-in-production',
+          signOptions: { 
+            expiresIn: '24h',
+            issuer: 'cms-api',
+            audience: 'cms-users'
+          },
+          verifyOptions: {
+            issuer: 'cms-api',
+            audience: 'cms-users'
+          }
+        };
+      },
       inject: [ConfigService],
     }),
   ],

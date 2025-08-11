@@ -7,6 +7,7 @@ import {
   HttpStatus,
   ConflictException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -28,6 +29,27 @@ export class HttpExceptionInterceptor implements NestInterceptor {
             message: error.message,
             stack: error.stack
           });
+        }
+
+        // Tratar erros específicos do JWT
+        if (error.name === 'JsonWebTokenError') {
+          return throwError(
+            () => new UnauthorizedException({
+              statusCode: HttpStatus.UNAUTHORIZED,
+              message: 'Token inválido',
+              error: 'Unauthorized'
+            })
+          );
+        }
+
+        if (error.name === 'TokenExpiredError') {
+          return throwError(
+            () => new UnauthorizedException({
+              statusCode: HttpStatus.UNAUTHORIZED,
+              message: 'Token expirado',
+              error: 'Unauthorized'
+            })
+          );
         }
 
         // Tratar erros específicos do banco de dados

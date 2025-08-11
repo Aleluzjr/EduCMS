@@ -1,7 +1,7 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AppController } from './app.controller';
@@ -24,7 +24,11 @@ import { HttpExceptionInterceptor } from './common/interceptors/http-exception.i
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot(databaseConfig),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: databaseConfig,
+      inject: [ConfigService],
+    }),
     DocumentsModule,
     FieldsModule,
     SlideTemplatesModule,

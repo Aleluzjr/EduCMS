@@ -12,7 +12,7 @@ export class SlideTemplatesService {
 
   findAll() {
     return this.repo.find({
-      select: ['id', 'name', 'templateKey', 'createdAt', 'updatedAt'],
+      select: ['id', 'name', 'icon', 'templateKey', 'fields', 'createdById', 'createdAt', 'updatedAt'],
       order: { createdAt: 'DESC' }
     });
   }
