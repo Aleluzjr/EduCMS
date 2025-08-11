@@ -53,7 +53,10 @@ export default function SlideEditor({ slide, template, onUpdate }: SlideEditorPr
       const result = await response.json();
       handleFieldChange(fieldName, result);
     } catch (error) {
-      console.error('Erro no upload:', error);
+      // Log silencioso em produção
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Erro no upload');
+      }
       alert('Erro ao fazer upload do arquivo');
     }
     setUploading(false);

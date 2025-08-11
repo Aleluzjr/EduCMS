@@ -5,6 +5,7 @@ import { useForm, usePasswordField, useCapsLock } from '../hooks';
 import { validators } from '../utils';
 import Input from './ui/Input';
 import Button from './ui/Button';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginFormData {
   email: string;
@@ -16,6 +17,7 @@ const LoginForm: React.FC = () => {
   const { login } = useAuth();
   const passwordField = usePasswordField();
   const isCapsLockOn = useCapsLock();
+  const navigate = useNavigate();
 
   const { values, errors, loading, setFieldValue, handleSubmit } = useForm<LoginFormData>({
     initialValues: {
@@ -26,6 +28,8 @@ const LoginForm: React.FC = () => {
       setError('');
       try {
         await login(formData.email, formData.password);
+        // Redirecionar para o dashboard após login bem-sucedido
+        navigate('/dashboard');
       } catch (err: any) {
         setError(err.message || 'Erro ao fazer login');
       }

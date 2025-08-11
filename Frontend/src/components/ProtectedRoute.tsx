@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -48,11 +49,17 @@ interface ProtectedRouteProps {
  * />
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, authReady } = useAuth();
   const location = useLocation();
 
-  if (!isAuthenticated) {
-    // Redirecionar para login se não estiver autenticado
+  // Aguardar authReady antes de decidir a renderização ou redirecionamento
+  if (!authReady) {
+    // Renderizar fallback (splash/spinner) sem redirecionar
+    return <LoadingSpinner fullScreen text="Carregando..." />;
+  }
+
+  // Se authReady mas não autenticado, redirecionar para login
+  if (authReady && !isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -74,6 +81,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     }
   }
 
+  // Se authReady e autenticado (e com permissões se aplicável), renderizar children
   return <>{children}</>;
 };
 

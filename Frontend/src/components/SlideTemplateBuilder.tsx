@@ -74,7 +74,10 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
         lastSaved: new Date().toISOString()
       }));
     } catch (error) {
-      console.warn('Não foi possível salvar o rascunho:', error);
+      // Log silencioso em produção
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Não foi possível salvar o rascunho');
+      }
     }
   };
 
@@ -87,7 +90,9 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
         
         // Verificar se a versão é compatível
         if (parsedDraft.version !== STORAGE_VERSION) {
-          console.warn('Versão do rascunho não é compatível, ignorando...');
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Versão do rascunho não é compatível, ignorando...');
+          }
           clearDraft(); // Limpar rascunho antigo automaticamente
           return null;
         }
@@ -95,7 +100,10 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
         return parsedDraft;
       }
     } catch (error) {
-      console.warn('Não foi possível carregar o rascunho:', error);
+      // Log silencioso em produção
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Não foi possível carregar o rascunho');
+      }
     }
     return null;
   };
@@ -105,7 +113,10 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
-      console.warn('Não foi possível limpar o rascunho:', error);
+      // Log silencioso em produção
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Não foi possível limpar o rascunho');
+      }
     }
   };
 
@@ -224,7 +235,7 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+        throw new Error(errorData.message || 'Erro na requisição');
       }
 
       const savedTemplate = await response.json();
@@ -238,7 +249,10 @@ export default function SlideTemplateBuilder({ template, onBack, onSave }: Slide
       success(template ? 'Template atualizado com sucesso!' : 'Template criado com sucesso!');
       onSave(savedTemplate);
     } catch (error) {
-      console.error('Erro ao salvar template:', error);
+      // Log silencioso em produção
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Erro ao salvar template');
+      }
       const errorMessage = error instanceof Error ? error.message : 'Erro ao salvar template';
       error(errorMessage);
     }

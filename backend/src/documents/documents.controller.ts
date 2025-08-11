@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Param, Body, ParseIntPipe, HttpStat
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { QueryDocumentsDto } from './dto/query-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../entities/user.entity';
@@ -15,7 +16,7 @@ export class DocumentsController {
   @Get()
   async findAll(
     @CurrentUser() currentUser: User,
-    @Query('withMedia') withMedia?: string
+    @Query() query: QueryDocumentsDto
   ) {
     return this.service.findAll(currentUser);
   }

@@ -78,7 +78,6 @@ export default function DocumentEditor({ document, templates, onBack, onSave }: 
       // Atualiza o documento original para resetar as mudanças não salvas
       setHasUnsavedChanges(false);
     } catch (err) {
-      console.error('Erro ao salvar documento:', err);
       error('Erro ao salvar documento');
     }
   };

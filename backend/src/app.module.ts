@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -17,7 +17,6 @@ import { UsersModule } from './users/users.module';
 import { DbTestController } from './db-test.controller';
 import { databaseConfig } from './config/database.config';
 import { HttpExceptionInterceptor } from './common/interceptors/http-exception.interceptor';
-import { ValidationPipe } from './common/pipes/validation.pipe';
 
 @Module({
   imports: [
@@ -43,10 +42,6 @@ import { ValidationPipe } from './common/pipes/validation.pipe';
     {
       provide: APP_INTERCEPTOR,
       useClass: HttpExceptionInterceptor,
-    },
-    {
-      provide: APP_PIPE,
-      useClass: ValidationPipe,
     },
   ],
 })

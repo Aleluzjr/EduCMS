@@ -1,17 +1,20 @@
 // Tipos base
 export interface BaseEntity {
   id: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Tipos de usuário
-export interface User extends BaseEntity {
+export interface User {
+  id: number;
   name: string;
   email: string;
   role: UserRole;
   active: boolean;
-  lastLoginAt: string | null;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type UserRole = 'ADMIN' | 'EDITOR';
@@ -21,6 +24,13 @@ export interface CreateUserData {
   email: string;
   password: string;
   role: UserRole;
+}
+
+export interface CreateDocumentData {
+  name: string;
+  documentId?: string;
+  slides?: any[];
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateUserData {
@@ -39,82 +49,68 @@ export interface UserStats {
 }
 
 // Tipos de campo
-export interface Field extends BaseEntity {
+export interface Field {
+  id: number;
+  templateId: number;
   name: string;
-  type: FieldType;
+  type: string;
   label: string;
   required: boolean;
-  defaultValue?: FieldValue;
-  allowedMediaTypes?: MediaType[];
-  fields?: Field[]; // Para campos repetíveis
-  rows?: number; // Para textarea
-  placeholder?: string;
-  validation?: FieldValidation;
+  defaultValue?: string;
+  accept?: string;
+  fields?: any;
 }
-
-export type FieldType = 'text' | 'textarea' | 'html' | 'media' | 'repeatable' | 'number' | 'select' | 'checkbox' | 'date';
-
-export type FieldValue = string | number | boolean | string[] | null;
 
 export type MediaType = 'image' | 'video' | 'audio' | 'document';
 
-export interface FieldValidation {
-  minLength?: number;
-  maxLength?: number;
-  pattern?: string;
-  min?: number;
-  max?: number;
-  required?: boolean;
-}
-
 // Tipos de slide
-export interface Slide extends BaseEntity {
+export interface Slide {
   templateId: number;
   templateKey: string;
   order: number;
   fields: SlideField[];
-  isPublished: boolean;
-  publishedAt?: string;
+  publishedAt?: Date;
 }
 
 export interface SlideField {
   fieldId: number;
   fieldName: string;
-  fieldType: FieldType;
-  value: FieldValue;
+  fieldType: string;
+  value: any;
   mediaUrl?: string;
   mediaAlt?: string;
 }
 
 // Tipos de template
-export interface SlideTemplate extends BaseEntity {
+export interface SlideTemplate {
+  id: number;
   name: string;
   icon: string;
   templateKey: string;
-  description?: string;
-  fields: Field[];
-  isActive: boolean;
-  version: number;
+  fields: any[];
+  createdBy?: User;
+  createdById: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Tipos de documento
 export interface Document extends BaseEntity {
   documentId: string;
   name: string;
-  description?: string;
-  slides: Slide[];
-  publishedAt: string | null;
-  isPublished: boolean;
-  authorId: number;
-  author?: User;
-  tags?: string[];
+  slides: any[];
+  publishedAt: Date | null;
+  ownerId: number;
+  owner?: User;
   status: DocumentStatus;
+  deletedAt?: Date | null;
 }
 
-export type DocumentStatus = 'draft' | 'review' | 'published' | 'archived';
+export type DocumentStatus = 'RASCUNHO' | 'PUBLICADO';
 
 // Tipos de mídia
-export interface Media extends BaseEntity {
+export interface Media {
+  id: number;
   filename: string;
   originalName: string;
   mimeType: string;
@@ -122,13 +118,13 @@ export interface Media extends BaseEntity {
   url: string;
   alt?: string;
   caption?: string;
-  uploadedBy: number;
-  uploadedByUser?: User;
   mediaType: MediaType;
   dimensions?: {
     width: number;
     height: number;
   };
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateMediaData {
@@ -189,7 +185,7 @@ export interface ApiError {
 // Tipos de formulário
 export interface FormField {
   name: string;
-  value: FieldValue;
+  value: any;
   error?: string;
   touched: boolean;
 }

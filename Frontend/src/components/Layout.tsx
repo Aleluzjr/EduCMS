@@ -35,7 +35,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       await logout();
       navigate('/login');
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      // Erro ao fazer logout
     }
   };
 

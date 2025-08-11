@@ -20,7 +20,7 @@ import {
 
 const UsuariosPage: React.FC = () => {
   const { user: currentUser } = useAuth();
-  const { showToast } = useToast();
+  const toast = useToast();
   
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -52,15 +52,33 @@ const UsuariosPage: React.FC = () => {
   // Carregar usuários
   const loadUsers = async () => {
     try {
+      console.log('🔍 [DEBUG] Iniciando carregamento de usuários...');
       setLoading(true);
       const response = await apiRequestWithAuth('/users', { method: 'GET' });
+      console.log('✅ [DEBUG] Resposta da API:', response.status, response.statusText);
       const data = await response.json();
+      console.log('✅ [DEBUG] Dados recebidos:', data);
       setUsers(data);
     } catch (error) {
-      showToast.error('Erro ao carregar usuários');
-      console.error('Erro ao carregar usuários:', error);
+      console.error('❌ [DEBUG] Erro ao carregar usuários:', error);
+      toast.error('Erro ao carregar usuários');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Testar endpoint público
+  const testPublicEndpoint = async () => {
+    try {
+      console.log('🧪 [DEBUG] Testando endpoint público...');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/users/test`);
+      console.log('🧪 [DEBUG] Resposta do endpoint público:', response.status, response.statusText);
+      const data = await response.json();
+      console.log('🧪 [DEBUG] Dados do endpoint público:', data);
+      toast.success('Endpoint público funcionando!');
+    } catch (error) {
+      console.error('❌ [DEBUG] Erro no endpoint público:', error);
+      toast.error('Erro no endpoint público');
     }
   };
 
@@ -71,7 +89,7 @@ const UsuariosPage: React.FC = () => {
       const data = await response.json();
       setStats(data);
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
+      // Erro ao carregar estatísticas
     }
   };
 
@@ -100,13 +118,13 @@ const UsuariosPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createForm)
       });
-      showToast.success('Usuário criado com sucesso!');
+      toast.success('Usuário criado com sucesso!');
       setShowCreateModal(false);
       setCreateForm({ name: '', email: '', password: '', role: 'EDITOR' });
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error(error.response?.data?.message || 'Erro ao criar usuário');
+      showToast.error('Erro ao criar usuário');
     }
   };
 
@@ -127,7 +145,7 @@ const UsuariosPage: React.FC = () => {
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error(error.response?.data?.message || 'Erro ao atualizar usuário');
+      showToast.error('Erro ao atualizar usuário');
     }
   };
 
@@ -143,7 +161,7 @@ const UsuariosPage: React.FC = () => {
       loadUsers();
       loadStats();
     } catch (error: any) {
-      showToast.error(error.response?.data?.message || 'Erro ao remover usuário');
+      showToast.error('Erro ao remover usuário');
     }
   };
 
@@ -205,13 +223,21 @@ const UsuariosPage: React.FC = () => {
             Gerencie os usuários do sistema e suas permissões
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Novo Usuário</span>
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={testPublicEndpoint}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <span>🧪 Testar API</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Novo Usuário</span>
+          </button>
+        </div>
       </div>
 
       {/* Estatísticas */}

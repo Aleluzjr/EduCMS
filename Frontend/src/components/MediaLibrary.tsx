@@ -26,7 +26,10 @@ export default function MediaLibrary() {
         if (!response.ok) throw new Error('Upload failed');
         return await response.json();
       } catch (err) {
-        console.error('Erro no upload:', err);
+        // Log silencioso em produção
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Erro no upload');
+        }
         error('Erro no upload do arquivo');
         return null;
       }

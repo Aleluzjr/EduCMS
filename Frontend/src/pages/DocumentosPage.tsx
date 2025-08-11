@@ -1,8 +1,8 @@
-import React, { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
 import { Plus, FileText, Eye, Trash2, Edit3 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { ENDPOINTS, apiRequest } from '../config/api';
-import { Document, SlideTemplate } from '../types';
+import { Document, SlideTemplate, CreateDocumentData } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -31,7 +31,7 @@ const DocumentCard = React.memo(({
   onEdit: (doc: Document) => void; 
   onView: (id: number) => void; 
   onDelete: (id: number) => void; 
-  formatDate: (date: string) => string; 
+  formatDate: (date: string | Date) => string; 
 }) => (
   <div className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow">
     <div className="p-6">
@@ -49,8 +49,8 @@ const DocumentCard = React.memo(({
                 </>
               ) : (
                 <>
-                  <div className={`w-2 h-2 rounded-full ${doc.publishedAt ? 'bg-green-400' : 'bg-gray-300'}`} />
-                  <span>{doc.publishedAt ? 'Publicado' : 'Rascunho'}</span>
+                  <div className={`w-2 h-2 rounded-full ${doc.status === 'PUBLICADO' ? 'bg-green-400' : 'bg-gray-300'}`} />
+                  <span>{doc.status === 'PUBLICADO' ? 'Publicado' : 'Rascunho'}</span>
                 </>
               )}
             </div>
@@ -103,21 +103,13 @@ const DocumentosPage: React.FC = () => {
     onConfirm: () => {}
   });
 
-  // Log de debug para identificar o problema
-  useEffect(() => {
-    console.log('🔍 DocumentosPage - Debug Info:', {
-      user: user,
-      userRole: user?.role,
-      accessToken: accessToken ? 'Presente' : 'Ausente',
-      isAuthenticated: !!accessToken
-    });
-  }, [user, accessToken]);
+
 
   // Memoizar funções para evitar re-criações desnecessárias
   const fetchDocuments = useCallback(async () => {
     try {
+      console.log('Iniciando fetchDocuments...');
       setLoading(true);
-      console.log('📄 Iniciando busca de documentos para usuário:', user?.role);
       
       const response = await apiRequest(ENDPOINTS.DOCUMENTS, {
         headers: {
@@ -125,11 +117,7 @@ const DocumentosPage: React.FC = () => {
         }
       });
       
-      console.log('📄 Resposta da API de documentos:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
+      console.log('Resposta recebida:', response.status);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -140,11 +128,11 @@ const DocumentosPage: React.FC = () => {
           error('Acesso negado. Você não tem permissão para acessar esta área.');
           return;
         }
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        throw new Error('Erro na requisição');
       }
       
       const data = await response.json();
-      console.log('📄 Dados recebidos da API:', data);
+      console.log('Dados recebidos:', data);
       
       // Garantir que documents seja sempre um array
       if (Array.isArray(data)) {
@@ -156,18 +144,17 @@ const DocumentosPage: React.FC = () => {
         // Se a resposta estiver em formato { documents: [...] }
         setDocuments(data.documents);
       } else {
-        console.warn('⚠️ Formato de resposta inesperado:', data);
         setDocuments([]);
         error('Formato de resposta inesperado da API');
       }
     } catch (err) {
-      console.error('❌ Erro ao carregar documentos:', err);
+      console.error('Erro em fetchDocuments:', err);
       error('Erro ao carregar documentos');
       setDocuments([]); // Garantir que seja um array vazio em caso de erro
     } finally {
       setLoading(false);
     }
-  }, [accessToken, error, user?.role]);
+  }, [accessToken, error]);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -182,7 +169,7 @@ const DocumentosPage: React.FC = () => {
           error('Sessão expirada. Faça login novamente.');
           return;
         }
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        throw new Error('Erro na requisição');
       }
       
       const data = await response.json();
@@ -195,7 +182,6 @@ const DocumentosPage: React.FC = () => {
       } else if (data && typeof data === 'object' && data.templates && Array.isArray(data.templates)) {
         setTemplates(data.data);
       } else {
-        console.warn('⚠️ Formato de resposta inesperado para templates:', data);
         setTemplates([]);
       }
     } catch (err) {
@@ -208,16 +194,17 @@ const DocumentosPage: React.FC = () => {
       id: Date.now(),
       documentId: `temp-${Date.now()}`,
       name: 'Novo Documento',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      slides: [],
       publishedAt: null,
-      slides: []
+      ownerId: user?.id || 0,
+      status: 'RASCUNHO'
     };
     
     setDocuments(prev => [...prev, tempDoc]);
     setSelectedDocument(tempDoc);
-    success('Novo documento criado');
-  }, [success]);
+  }, [user?.id]);
 
   const deleteDocument = useCallback(async (id: number) => {
     setConfirmDialog({
@@ -243,7 +230,7 @@ const DocumentosPage: React.FC = () => {
           });
           
           if (!response.ok) {
-            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+            throw new Error('Erro na requisição');
           }
           
           setDocuments(prev => prev.filter(doc => doc.id !== id));
@@ -252,7 +239,6 @@ const DocumentosPage: React.FC = () => {
           }
           success('Documento excluído com sucesso');
         } catch (err) {
-          console.error('Erro ao excluir documento:', err);
           error('Erro ao excluir documento');
         }
       }
@@ -269,8 +255,8 @@ const DocumentosPage: React.FC = () => {
   }, []);
 
   // Memoizar função de formatação de data
-  const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = useCallback((dateInput: string | Date) => {
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -283,10 +269,17 @@ const DocumentosPage: React.FC = () => {
   // Memoizar lista de documentos para evitar re-renders desnecessários
   const documentsList = useMemo(() => documents, [documents]);
 
+  // Adicionar ref para controlar se já foi feita a primeira chamada
+  const hasInitialized = useRef(false);
+
   useEffect(() => {
-    fetchDocuments();
-    fetchTemplates();
-  }, [fetchDocuments, fetchTemplates]);
+    // Evitar múltiplas chamadas simultâneas
+    if (!hasInitialized.current && accessToken) {
+      hasInitialized.current = true;
+      fetchDocuments();
+      fetchTemplates();
+    }
+  }, [accessToken]); // Remover fetchDocuments e fetchTemplates das dependências
 
   if (selectedDocument) {
     return (
@@ -301,21 +294,47 @@ const DocumentosPage: React.FC = () => {
               
               if (updatedDoc.id > 1000000) {
                 // Documento temporário - salvar na API
+                // Preparar dados conforme esperado pelo backend
+                const createData: CreateDocumentData = {
+                  name: updatedDoc.name,
+                  documentId: updatedDoc.documentId,
+                  slides: updatedDoc.slides || [],
+                  metadata: {
+                    status: updatedDoc.status
+                  }
+                };
+                
                 const response = await apiRequest(ENDPOINTS.DOCUMENTS, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(updatedDoc)
+                  headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                  },
+                  body: JSON.stringify(createData)
                 });
+                
+                if (!response.ok) {
+                  throw new Error('Erro na requisição');
+                }
+                
                 savedDoc = await response.json();
               } else {
                 // Documento existente - atualizar na API
-                const { id, ...updateData } = updatedDoc;
+                const { id, createdAt, updatedAt, ...updateData } = updatedDoc;
                 
                 const response = await apiRequest(`${ENDPOINTS.DOCUMENTS}/${updatedDoc.id}`, {
                   method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                  },
                   body: JSON.stringify(updateData)
                 });
+                
+                if (!response.ok) {
+                  throw new Error('Erro na requisição');
+                }
+                
                 savedDoc = await response.json();
               }
               
@@ -323,6 +342,7 @@ const DocumentosPage: React.FC = () => {
                 doc.id === updatedDoc.id ? savedDoc : doc
               ));
               setSelectedDocument(savedDoc);
+              success('Documento salvo com sucesso!');
               
             } catch (err) {
               console.error('Erro ao salvar documento:', err);

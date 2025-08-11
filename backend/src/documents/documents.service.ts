@@ -18,18 +18,28 @@ export class DocumentsService {
   ) {}
 
   async findAll(currentUser: User): Promise<Document[]> {
-    if (currentUser.role === UserRole.ADMIN) {
-      return this.repo.find({
-        relations: ['media', 'owner'],
-        order: { createdAt: 'DESC' },
-      });
-    } else {
-      // EDITOR só vê seus próprios documentos
-      return this.repo.find({
-        where: { ownerId: currentUser.id },
-        relations: ['media'],
-        order: { createdAt: 'DESC' },
-      });
+    try {
+      if (currentUser.role === UserRole.ADMIN) {
+        return this.repo.find({
+          select: [
+            'id', 'documentId', 'name', 'status', 'createdAt', 'updatedAt', 'publishedAt'
+          ],
+          relations: ['owner'],
+          order: { createdAt: 'DESC' },
+        });
+      } else {
+        // EDITOR só vê seus próprios documentos
+        return this.repo.find({
+          select: [
+            'id', 'documentId', 'name', 'status', 'createdAt', 'updatedAt', 'publishedAt'
+          ],
+          where: { ownerId: currentUser.id },
+          order: { createdAt: 'DESC' },
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar documentos:', error);
+      throw error;
     }
   }
 

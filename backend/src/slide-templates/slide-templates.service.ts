@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SlideTemplate } from '../entities/slide-template.entity';
@@ -11,7 +11,10 @@ export class SlideTemplatesService {
   ) {}
 
   findAll() {
-    return this.repo.find();
+    return this.repo.find({
+      select: ['id', 'name', 'templateKey', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'DESC' }
+    });
   }
 
   findOne(id: number) {
@@ -50,7 +53,7 @@ export class SlideTemplatesService {
       // Verificar se o template existe
       const existingTemplate = await this.repo.findOne({ where: { id } });
       if (!existingTemplate) {
-        throw new Error('Template não encontrado');
+        throw new NotFoundException('Template não encontrado');
       }
 
       // Se o nome foi alterado, verificar se não conflita com outro template

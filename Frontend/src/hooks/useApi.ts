@@ -19,7 +19,10 @@ interface UseApiReturn<T> extends UseApiState<T> {
   clearError: () => void;
 }
 
-// Hook para requisições sem autenticação
+/**
+ * Hook para requisições sem autenticação
+ * Use este hook para endpoints públicos que não requerem token de acesso
+ */
 export const useApi = <T = any>(): UseApiReturn<T> => {
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
@@ -50,7 +53,7 @@ export const useApi = <T = any>(): UseApiReturn<T> => {
         });
       }
     } catch (error) {
-      console.error('❌ Erro inesperado no hook useApi:', error);
+      // Erro inesperado no hook useApi - não expor detalhes
       setState({
         data: null,
         error: {
@@ -85,8 +88,15 @@ export const useApi = <T = any>(): UseApiReturn<T> => {
   };
 };
 
-// Hook para requisições com autenticação
-export const useAuthApi = <T = any>(): UseApiReturn<T> => {
+/**
+ * Hook para requisições com autenticação
+ * IMPORTANTE: Sempre passe a função refreshAuth do AuthContext como parâmetro
+ * 
+ * Exemplo de uso:
+ * const { refreshAuth } = useAuth();
+ * const { execute, data, error, isLoading } = useAuthApi(refreshAuth);
+ */
+export const useAuthApi = <T = any>(refreshAuthFn?: () => Promise<void>): UseApiReturn<T> => {
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     error: null,
@@ -98,7 +108,7 @@ export const useAuthApi = <T = any>(): UseApiReturn<T> => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     
     try {
-      const response = await apiRequestWithAuthAndErrorHandling<T>(url, options);
+      const response = await apiRequestWithAuthAndErrorHandling<T>(url, options, refreshAuthFn);
       
       if (response.success && response.data) {
         setState({
@@ -116,7 +126,7 @@ export const useAuthApi = <T = any>(): UseApiReturn<T> => {
         });
       }
     } catch (error) {
-      console.error('❌ Erro inesperado no hook useAuthApi:', error);
+      // Erro inesperado no hook useAuthApi - não expor detalhes
       setState({
         data: null,
         error: {
@@ -128,7 +138,7 @@ export const useAuthApi = <T = any>(): UseApiReturn<T> => {
         success: false
       });
     }
-  }, []);
+  }, [refreshAuthFn]);
 
   const reset = useCallback(() => {
     setState({
@@ -151,8 +161,15 @@ export const useAuthApi = <T = any>(): UseApiReturn<T> => {
   };
 };
 
-// Hook para operações CRUD com autenticação
-export const useCrudApi = <T = any>() => {
+/**
+ * Hook para operações CRUD com autenticação
+ * IMPORTANTE: Sempre passe a função refreshAuth do AuthContext como parâmetro
+ * 
+ * Exemplo de uso:
+ * const { refreshAuth } = useAuth();
+ * const { create, update, get, remove, data, error, isLoading } = useCrudApi(refreshAuth);
+ */
+export const useCrudApi = <T = any>(refreshAuthFn?: () => Promise<void>) => {
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     error: null,
@@ -168,7 +185,7 @@ export const useCrudApi = <T = any>() => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      });
+      }, refreshAuthFn);
       
       if (response.success && response.data) {
         setState({
@@ -186,7 +203,6 @@ export const useCrudApi = <T = any>() => {
         });
       }
     } catch (error) {
-      console.error('❌ Erro ao criar recurso:', error);
       setState({
         data: null,
         error: {
@@ -198,7 +214,7 @@ export const useCrudApi = <T = any>() => {
         success: false
       });
     }
-  }, []);
+  }, [refreshAuthFn]);
 
   const update = useCallback(async (url: string, data: any) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -208,7 +224,7 @@ export const useCrudApi = <T = any>() => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      });
+      }, refreshAuthFn);
       
       if (response.success && response.data) {
         setState({
@@ -226,7 +242,6 @@ export const useCrudApi = <T = any>() => {
         });
       }
     } catch (error) {
-      console.error('❌ Erro ao atualizar recurso:', error);
       setState({
         data: null,
         error: {
@@ -238,7 +253,44 @@ export const useCrudApi = <T = any>() => {
         success: false
       });
     }
-  }, []);
+  }, [refreshAuthFn]);
+
+  const get = useCallback(async (url: string) => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const response = await apiRequestWithAuthAndErrorHandling<T>(url, {
+        method: 'GET'
+      }, refreshAuthFn);
+      
+      if (response.success && response.data) {
+        setState({
+          data: response.data,
+          error: null,
+          isLoading: false,
+          success: true
+        });
+      } else if (response.error) {
+        setState({
+          data: null,
+          error: response.error,
+          isLoading: false,
+          success: false
+        });
+      }
+    } catch (error) {
+      setState({
+        data: null,
+        error: {
+          message: 'Erro ao buscar recurso',
+          status: 0,
+          code: 'GET_ERROR'
+        },
+        isLoading: false,
+        success: false
+      });
+    }
+  }, [refreshAuthFn]);
 
   const remove = useCallback(async (url: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -246,7 +298,7 @@ export const useCrudApi = <T = any>() => {
     try {
       const response = await apiRequestWithAuthAndErrorHandling<T>(url, {
         method: 'DELETE'
-      });
+      }, refreshAuthFn);
       
       if (response.success) {
         setState({
@@ -264,7 +316,6 @@ export const useCrudApi = <T = any>() => {
         });
       }
     } catch (error) {
-      console.error('❌ Erro ao remover recurso:', error);
       setState({
         data: null,
         error: {
@@ -276,7 +327,7 @@ export const useCrudApi = <T = any>() => {
         success: false
       });
     }
-  }, []);
+  }, [refreshAuthFn]);
 
   const reset = useCallback(() => {
     setState({
@@ -295,6 +346,7 @@ export const useCrudApi = <T = any>() => {
     ...state,
     create,
     update,
+    get,
     remove,
     reset,
     clearError

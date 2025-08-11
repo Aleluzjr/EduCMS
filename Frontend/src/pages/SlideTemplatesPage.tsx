@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
 import { Plus, Settings, Eye, Trash2, Edit3 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { ENDPOINTS, apiRequest } from '../config/api';
@@ -106,7 +106,7 @@ const SlideTemplatesPage: React.FC = () => {
           error('Sessão expirada. Faça login novamente.');
           return;
         }
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        throw new Error('Erro na requisição');
       }
       
       const data = await response.json();
@@ -119,11 +119,9 @@ const SlideTemplatesPage: React.FC = () => {
       } else if (data && typeof data === 'object' && data.templates && Array.isArray(data.templates)) {
         setTemplates(data.templates);
       } else {
-        console.warn('⚠️ Formato de resposta inesperado para templates:', data);
         setTemplates([]);
       }
     } catch (err) {
-      console.error('Erro ao carregar templates:', err);
       error('Erro ao carregar templates');
       setTemplates([]);
     } finally {
@@ -146,13 +144,12 @@ const SlideTemplatesPage: React.FC = () => {
           });
           
           if (!response.ok) {
-            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+            throw new Error('Erro na requisição');
           }
           
           setTemplates(prev => prev.filter(template => template.id !== id));
           success('Template excluído com sucesso!');
         } catch (err) {
-          console.error('Erro ao excluir template:', err);
           error('Erro ao excluir template');
         }
       }
@@ -176,9 +173,16 @@ const SlideTemplatesPage: React.FC = () => {
   // Memoizar lista de templates para evitar re-renders desnecessários
   const templatesList = useMemo(() => templates, [templates]);
 
+  // Adicionar ref para controlar se já foi feita a primeira chamada
+  const hasInitialized = useRef(false);
+
   useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+    // Evitar múltiplas chamadas simultâneas
+    if (!hasInitialized.current && accessToken) {
+      hasInitialized.current = true;
+      fetchTemplates();
+    }
+  }, [accessToken]); // Remover fetchTemplates das dependências
 
   if (editingTemplate) {
     return (
@@ -199,7 +203,7 @@ const SlideTemplatesPage: React.FC = () => {
               
               if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+                throw new Error(errorData.message || 'Erro na requisição');
               }
               
               const updatedTemplate = await response.json();
@@ -208,7 +212,6 @@ const SlideTemplatesPage: React.FC = () => {
               setShowTemplateBuilder(false);
               success('Template atualizado com sucesso!');
             } catch (err) {
-              console.error('Erro ao atualizar template:', err);
               error(err instanceof Error ? err.message : 'Erro ao atualizar template');
             }
           }}
@@ -245,7 +248,6 @@ const SlideTemplatesPage: React.FC = () => {
               setEditingTemplate(null);
               success('Template criado com sucesso!');
             } catch (err) {
-              console.error('Erro ao salvar template:', err);
               setShowTemplateBuilder(false);
               setEditingTemplate(null);
               error(err instanceof Error ? err.message : 'Erro ao salvar template');

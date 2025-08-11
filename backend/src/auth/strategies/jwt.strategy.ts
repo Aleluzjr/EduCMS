@@ -21,13 +21,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Log para debug
+    if (process.env.NODE_ENV === 'development') {
+      console.log('JWT Strategy - Payload recebido:', payload);
+    }
+
+    if (!payload || !payload.sub) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('JWT Strategy - Payload inválido ou sem sub');
+      }
+      throw new UnauthorizedException('Token inválido');
+    }
+
     const user = await this.userRepository.findOne({
       where: { id: payload.sub, active: true },
       select: ['id', 'email', 'role', 'name', 'active']
     });
 
     if (!user) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('JWT Strategy - Usuário não encontrado ou inativo:', payload.sub);
+      }
       throw new UnauthorizedException('Usuário não encontrado ou inativo');
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('JWT Strategy - Usuário validado com sucesso:', user.id);
     }
 
     return {

@@ -16,11 +16,15 @@ async function bootstrap() {
     credentials: true,
   });
   
-  // Configuração global de validação
+  // Configuração global de validação com configurações mais específicas
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false, // Permite parâmetros não declarados
     transform: true,
+    transformOptions: {
+      enableImplicitConversion: true, // Permite conversão implícita
+    },
+    skipMissingProperties: true, // Pula propriedades ausentes
   }));
   
   // Configuração para servir arquivos estáticos
@@ -30,6 +34,10 @@ async function bootstrap() {
   
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`Aplicação rodando na porta ${port}`);
+  
+  // Log seguro apenas em desenvolvimento
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Aplicação rodando na porta ${port}`);
+  }
 }
 bootstrap();
