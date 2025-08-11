@@ -1,10 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { apiRequest } from '../config/api';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import { apiRequest, registerAuthTokenGetter } from '../config/api';
 import { useToast } from '../hooks/useToast';
 import { RefreshScheduler, RefreshManager, AuthBroadcaster, authStorage } from './auth';
 import { AuthState, User, AuthContextType } from './auth/types';
 
-const DEBUG_AUTH = false;
+const DEBUG_AUTH = true;
+
+// Instâncias singleton criadas fora do componente para evitar recriação
+const scheduler = new RefreshScheduler();
+const refreshManager = RefreshManager.getInstance();
+const broadcaster = new AuthBroadcaster();
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -38,9 +43,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     permissions: [],
   });
 
-  const scheduler = new RefreshScheduler();
-  const refreshManager = RefreshManager.getInstance();
-  const broadcaster = new AuthBroadcaster();
+  // Registrar getter de tokens para a API
+  useEffect(() => {
+    registerAuthTokenGetter(() => ({
+      accessToken: authState.accessToken,
+      refreshToken: authState.refreshToken
+    }));
+  }, [authState.accessToken, authState.refreshToken]);
 
   // Função para limpar autenticação
   const clearAuth = useCallback((shouldBroadcast: boolean = true, reason?: string) => {
@@ -73,6 +82,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   // Função para refresh de token
   const refreshAuth = useCallback(async (refreshToken?: string): Promise<void> => {
     DEBUG_AUTH && console.debug('🔄 Iniciando refresh de token...');
+    DEBUG_AUTH && console.debug('📋 Estado atual:', { 
+      hasRefreshToken: !!authState.refreshToken, 
+      hasAccessToken: !!authState.accessToken,
+      isAuthenticated: authState.isAuthenticated 
+    });
     
     return refreshManager.runOnce(async () => {
       const tokenToUse = refreshToken || authState.refreshToken;
@@ -83,15 +97,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
       try {
         DEBUG_AUTH && console.debug('📡 Fazendo requisição de refresh...');
-        const response = await apiRequest('/auth/refresh', {
+        DEBUG_AUTH && console.debug('🔑 Token usado:', tokenToUse.substring(0, 20) + '...');
+        
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/auth/refresh`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
           body: JSON.stringify({ refresh_token: tokenToUse })
         });
 
+        DEBUG_AUTH && console.debug('📊 Resposta do refresh:', { status: response.status, ok: response.ok });
+
         if (response.ok) {
           const data = await response.json();
-          DEBUG_AUTH && console.debug('✅ Refresh bem-sucedido, atualizando estado...');
+          DEBUG_AUTH && console.debug('✅ Refresh bem-sucedido, atualizando estado...', data);
           
           const newAuthState = {
             user: data.user,
@@ -111,7 +132,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
           }
           authStorage.setRefreshToken(data.refresh_token);
 
-          // Agendar próximo refresh
           scheduler.scheduleRefresh(data.access_token, () => {
             refreshAuth().catch((error) => {
               DEBUG_AUTH && console.debug('❌ Refresh agendado falhou:', error);
@@ -119,7 +139,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
             });
           });
 
-          // Enviar broadcast
           broadcaster.send('refresh', {
             user: data.user,
             accessToken: data.access_token,
@@ -184,7 +203,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   // Listener para mensagens de broadcast
   useEffect(() => {
-    broadcaster.onMessage((message) => {
+    const handleBroadcastMessage = (message: any) => {
       const { type, data } = message;
       
       switch (type) {
@@ -222,14 +241,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
           }
           break;
       }
-    });
+    };
 
+    broadcaster.onMessage(handleBroadcastMessage);
+    
     return () => {
       broadcaster.close();
     };
   }, [authState.isRefreshing, persistAccessToken, refreshAuth, clearAuth]);
 
-  // Bootstrap da sessão
+  // Bootstrap da sessão - executado apenas uma vez
   useEffect(() => {
     const bootstrapSession = async () => {
       DEBUG_AUTH && console.debug('🚀 Iniciando bootstrap da sessão...');
@@ -253,9 +274,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     };
 
     bootstrapSession();
-  }, [refreshAuth]);
+  }, []); // Sem dependências - executado apenas uma vez
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const response = await apiRequest('/auth/login', {
         method: 'POST',
@@ -303,9 +324,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     } catch (error) {
       throw error;
     }
-  };
+  }, [persistAccessToken, refreshAuth, clearAuth]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       if (authState.accessToken) {
         await apiRequest('/auth/logout', {
@@ -320,9 +341,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     } finally {
       clearAuth(true, 'user_action');
     }
-  };
+  }, [authState.accessToken, clearAuth]);
 
-  const updateUser = (userData: Partial<User>) => {
+  const updateUser = useCallback((userData: Partial<User>) => {
     if (authState.user) {
       setAuthState(prev => ({
         ...prev,
@@ -330,7 +351,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         permissions: userData.permissions || prev.permissions
       }));
     }
-  };
+  }, [authState.user]);
 
   // Helpers de permissões
   const can = useCallback((permission: string): boolean => {
@@ -345,7 +366,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     return permissions.every(perm => authState.permissions.includes(perm));
   }, [authState.permissions]);
 
-  const value: AuthContextType = {
+  // Memoizar o valor do contexto para evitar recriações desnecessárias
+  const value = useMemo<AuthContextType>(() => ({
     ...authState,
     login,
     logout,
@@ -354,7 +376,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     can,
     canAny,
     canAll
-  };
+  }), [authState, login, logout, refreshAuth, updateUser, can, canAny, canAll]);
 
   return (
     <AuthContext.Provider value={value}>

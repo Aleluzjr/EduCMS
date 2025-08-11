@@ -181,9 +181,11 @@ export class AuthService {
         permissions 
       };
       const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '24h' });
+      const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '30d' });
 
       return {
         access_token: newAccessToken,
+        refresh_token: newRefreshToken,
         user: {
           id: user.id,
           email: user.email,

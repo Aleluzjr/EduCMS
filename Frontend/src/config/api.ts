@@ -124,12 +124,28 @@ const safeJsonParse = (text: string): any => {
   }
 };
 
-// Função para obter tokens do localStorage
-const getAuthTokens = (persistAccessToken: boolean = false) => {
+// Função para obter tokens do estado atual (será sobrescrita pelo AuthContext)
+let getCurrentAuthTokens: (() => { accessToken: string | null; refreshToken: string | null }) | null = null;
+
+// Função para registrar o getter de tokens do AuthContext
+export const registerAuthTokenGetter = (tokenGetter: () => { accessToken: string | null; refreshToken: string | null }) => {
+  getCurrentAuthTokens = tokenGetter;
+};
+
+// Função para obter tokens do localStorage (fallback)
+const getAuthTokensFromStorage = (persistAccessToken: boolean = false) => {
   return {
     accessToken: persistAccessToken ? localStorage.getItem('accessToken') : null,
     refreshToken: localStorage.getItem('refreshToken')
   };
+};
+
+// Função para obter tokens (prioriza AuthContext, fallback para localStorage)
+const getAuthTokens = (persistAccessToken: boolean = false) => {
+  if (getCurrentAuthTokens) {
+    return getCurrentAuthTokens();
+  }
+  return getAuthTokensFromStorage(persistAccessToken);
 };
 
 // Função para fazer refresh do token
@@ -185,35 +201,20 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
       'Authorization': `Bearer ${accessToken}`
     };
   }
+  // Sempre garantir credentials: 'include' para cookies
+  options.credentials = 'include';
 
   try {
     const response = await fetch(fullUrl, {
       ...options,
       signal: controller.signal,
     });
-    
     clearTimeout(timeoutId);
 
-    if (response.status === 401) {
-      const isAuthEndpoint = AUTH_EXCEPTIONS.some(authPath => 
-        url.includes(authPath) || fullUrl.includes(authPath)
-      );
-      
-      if (isAuthEndpoint) {
-        // Para endpoints de auth, não disparar evento de logout
-        triggerGlobalLogout(false);
-        throw new Error('Credenciais inválidas');
-      } else {
-        // Para outros endpoints, disparar evento de logout
-        triggerGlobalLogout(true);
-        throw new Error('Sessão expirada');
-      }
-    }
-
+    // 401 e 403 tratados em apiRequestWithAuth
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
-    
     if (error instanceof Error && error.name === 'AbortError') {
       const timeoutError: ApiError = {
         message: 'Tempo limite da requisição excedido',
@@ -222,7 +223,6 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
       };
       throw timeoutError;
     }
-    
     if (error instanceof TypeError && error.message.includes('fetch')) {
       const networkError: ApiError = {
         message: 'Erro de conexão com o servidor',
@@ -231,7 +231,6 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
       };
       throw networkError;
     }
-    
     throw error;
   }
 };
@@ -293,91 +292,49 @@ export const refreshAndRetry = async (
 
 // Função para fazer requisições com auth e interceptor global para refresh
 export const apiRequestWithAuth = async (
-  url: string, 
-  options: RequestInit = {}, 
+  url: string,
+  options: RequestInit = {},
   refreshAuthFn?: () => Promise<void>
 ): Promise<Response> => {
-  try {
+  let triedRefresh = false;
+  let lastResponse: Response | undefined;
+  let lastError: any;
+  for (let attempt = 0; attempt < 2; attempt++) {
     const response = await apiRequest(url, options);
-    
+    lastResponse = response;
     if (response.status === 401) {
-      // Verificar se é um endpoint de auth
-      const isAuthEndpoint = AUTH_EXCEPTIONS.some(authPath => 
-        url.includes(authPath) || url.includes('/auth/')
-      );
-      
-      // Se for endpoint de auth, nunca disparar api:unauthorized
+      const isAuthEndpoint = AUTH_EXCEPTIONS.some(authPath => url.includes(authPath) || url.includes('/auth/'));
       if (isAuthEndpoint) {
-        triggerGlobalLogout(false);
+        // Nunca dispara api:unauthorized para rotas de auth
         throw new Error('Credenciais inválidas');
       }
-      
-      // Para outros endpoints, tentar refresh se disponível
-      if (refreshAuthFn) {
+      if (!triedRefresh && refreshAuthFn) {
         try {
           await refreshAuthFn();
-          
-          const { accessToken } = getAuthTokens(false);
-          
-          if (accessToken) {
-            const newOptions = {
-              ...options,
-              headers: {
-                ...options.headers,
-                'Authorization': `Bearer ${accessToken}`
-              }
-            };
-            
-            const retryResponse = await apiRequest(url, newOptions);
-            
-            if (retryResponse.status === 401) {
-              // Segunda tentativa falhou, disparar logout
-              triggerGlobalLogout(true);
-              throw new Error('Falha na renovação da sessão');
-            }
-            
-            return retryResponse;
-          } else {
-            throw new Error('Token não encontrado após refresh');
-          }
+          triedRefresh = true;
+          continue; // repete a request
         } catch (refreshError) {
-          // Refresh falhou, disparar logout
-          triggerGlobalLogout(true);
-          throw new Error('Falha na renovação da sessão');
+          // Refresh falhou, agora sim dispara api:unauthorized
+          const logoutEvent = new CustomEvent('api:unauthorized', { detail: { reason: 'Sessão expirada' } });
+          document.dispatchEvent(logoutEvent);
+          throw new Error('Sessão expirada');
         }
       } else {
-        // Sem função de refresh, tentar refresh automático
-        const { refreshToken } = getAuthTokens(false);
-        
-        if (refreshToken) {
-          try {
-            let newAccessToken = await refreshAuthToken(refreshToken, false);
-            
-            if (newAccessToken) {
-              const newOptions = {
-                ...options,
-                headers: {
-                  ...options.headers,
-                  'Authorization': `Bearer ${newAccessToken}`
-                }
-              };
-              return await apiRequest(url, newOptions);
-            }
-          } catch (autoRefreshError) {
-            // Refresh automático falhou
-          }
-        }
-        
-        // Refresh falhou ou não há refresh token, disparar logout
-        triggerGlobalLogout(true);
-        throw new Error('Falha na renovação da sessão');
+        // Já tentou refresh, não repete mais
+        const logoutEvent = new CustomEvent('api:unauthorized', { detail: { reason: 'Sessão expirada' } });
+        document.dispatchEvent(logoutEvent);
+        throw new Error('Sessão expirada');
       }
+    } else if (response.status === 403) {
+      // 403 não desloga, apenas lança erro
+      throw new Error('Acesso negado');
+    } else {
+      return response;
     }
-    
-    return response;
-  } catch (error) {
-    throw error;
   }
+  // Se chegou aqui, algo deu errado
+  if (lastResponse) return lastResponse;
+  throw lastError || new Error('Erro inesperado');
 };
 
 // Função para fazer requisições com tratamento de erro centralizado
